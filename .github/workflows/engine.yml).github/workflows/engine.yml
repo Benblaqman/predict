@@ -8,6 +8,10 @@ on:
 jobs:
   calculate-predictions:
     runs-on: ubuntu-latest
+    # Ruhusa hii ni lazima ili roboti aweze kuandika na ku-push faili la predictions.json kwenye repo yako
+    permissions:
+      contents: write
+      
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4

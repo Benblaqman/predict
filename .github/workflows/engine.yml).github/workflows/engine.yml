@@ -2,8 +2,8 @@ name: Run Wakalio Predictive Engine
 
 on:
   schedule:
-    - cron: '0 3 * * *' # Runs automatically daily at 3:00 AM UTC (6:00 AM East African Time)
-  workflow_dispatch: # Enables a manual run button inside your GitHub dashboard
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 jobs:
   calculate-predictions:
@@ -17,6 +17,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Dependencies
+        run: |
+          pip install requests beautifulsoup4 pandas scipy
+
       - name: Calculate Poisson and Kelly Metrics
         run: |
           python predict.py
@@ -28,8 +32,3 @@ jobs:
           git add docs/predictions.json
           git commit -m "Automated prediction update [skip ci]" || echo "No data updates discovered"
           git push
-
-
-                - name: Install Dependencies
-        run: pip install -r requirements.txt
-

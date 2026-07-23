@@ -1,0 +1,30 @@
+name: Run Wakalio Predictive Engine
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Runs automatically daily at 3:00 AM UTC (6:00 AM East African Time)
+  workflow_dispatch: # Enables a manual run button inside your GitHub dashboard
+
+jobs:
+  calculate-predictions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Runtime Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Calculate Poisson and Kelly Metrics
+        run: |
+          python predict.py
+
+      - name: Push Data to Live Dashboard
+        run: |
+          git config --global user.name "Wakalio Engine Bot"
+          git config --global user.email "engine@wakalio.local"
+          git add docs/predictions.json
+          git commit -m "Automated prediction update [skip ci]" || echo "No data updates discovered"
+          git push

@@ -1,25 +1,28 @@
 {
-    "last_updated": "2026-07-24 15:00:00 EAT",
-    "total_matches": 1,
-    "predictions": [
-        {
-            "fixture": "Loading predictions...",
-            "raw_probabilities": {
-                "Home": "50%",
-                "Draw": "25%",
-                "Away": "25%",
-                "Over 2.5": "50%"
-            },
-            "recommended_tip": "Waiting for engine...",
-            "tip_probability": "0%",
-            "estimated_odds": 0,
-            "betika_odds": {
-                "home": 0,
-                "draw": 0,
-                "away": 0
-            },
-            "kelly_stake": "0%",
-            "live_value_hunt": "NO"
-        }
-    ]
+  "last_updated":"2026-07-24 19:00",
+
+  "predictions":[
+
+    {
+
+      "fixture":"Manchester United vs Arsenal",
+
+      "recommended_tip":"1X",
+
+      "tip_probability":"91%"
+
+    },
+
+    {
+
+      "fixture":"Barcelona vs Sevilla",
+
+      "recommended_tip":"Over 2.5",
+
+      "tip_probability":"88%"
+
+    }
+
+  ]
+
 }

@@ -4,6 +4,7 @@ import math
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+import sys
 
 def poisson_probability(expected, goals):
     """Hesabu ya Poisson ya nafasi ya timu kufunga idadi fulani ya mabao."""
@@ -22,28 +23,36 @@ def fetch_betika_odds():
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            return data.get('data', {}).get('events', [])
+            events = data.get('data', {}).get('events', [])
+            print(f"✅ Betika: Fetched {len(events)} events")
+            return events
     except Exception as e:
         print(f"⚠️ Betika API error: {e}")
     return []
 
-def extract_betika_odds(home_team, away_team, betika_events):
-    """Tafuta odds za Betika kwa mechi maalum"""
-    try:
-        for event in betika_events:
-            event_name = event.get('name', '').lower()
-            if home_team.lower() in event_name and away_team.lower() in event_name:
-                odds = event.get('odds', {})
-                return {
-                    "home": float(odds.get('1', 1.5)),
-                    "draw": float(odds.get('X', 3.5)),
-                    "away": float(odds.get('2', 2.5))
-                }
-    except Exception as e:
-        print(f"Error extracting Betika odds: {e}")
+def normalize_team_name(name):
+    """Normalize team names for matching (remove special chars, lowercase)"""
+    return name.lower().strip().replace('fc', '').replace('  ', ' ').strip()
+
+def find_match_on_betika(home_team, away_team, betika_events):
+    """Find exact match on Betika using normalized team names"""
+    home_norm = normalize_team_name(home_team)
+    away_norm = normalize_team_name(away_team)
     
-    # Fallback odds if API fails
-    return {"home": 1.5, "draw": 3.5, "away": 2.5}
+    for event in betika_events:
+        event_name = event.get('name', '').lower()
+        # Check if both teams are mentioned in the event name
+        if home_norm in event_name and away_norm in event_name:
+            odds = event.get('odds', {})
+            return {
+                "home": float(odds.get('1', None)),
+                "draw": float(odds.get('X', None)),
+                "away": float(odds.get('2', None)),
+                "betika_match": event.get('name', 'Unknown'),
+                "event_id": event.get('id', None)
+            }
+    
+    return None  # Match not found on Betika
 
 def fetch_live_match_data():
     """Hukusanya data halisi ya mechi zinazokuja na uwezekano wa kimsingi wa takwimu."""
@@ -122,7 +131,7 @@ def fetch_live_match_data():
             except Exception as e:
                 continue
                 
-        print(f"✅ Fetched {len(fixtures)} matches from Forebet")
+        print(f"✅ Forebet: Fetched {len(fixtures)} matches")
         return fixtures
     except Exception as e:
         print(f"⚠️ Parsing error: {e}")
@@ -137,15 +146,37 @@ def run_wakalio_model():
     betika_events = fetch_betika_odds()
     
     if not raw_fixtures:
-        print("❌ No fixtures available")
-        return
+        print("❌ No fixtures available from Forebet")
+        sys.exit(1)
+    
+    if not betika_events:
+        print("❌ No events available from Betika")
+        sys.exit(1)
     
     processed_predictions = []
+    betika_matched = 0
+    variance_breakdown = {"ULTRA-SAFE": 0, "LOW": 0, "LOW-MEDIUM": 0, "MEDIUM": 0}
     
     for match in raw_fixtures:
         try:
-            # Fetch Betika odds for this match
-            betika_odds = extract_betika_odds(match["home"], match["away"], betika_events)
+            # CRITICAL: Only process matches that exist on Betika
+            betika_match_data = find_match_on_betika(match["home"], match["away"], betika_events)
+            
+            if not betika_match_data:
+                continue  # Skip - match not on Betika
+            
+            betika_matched += 1
+            
+            # Check if all odds are available
+            if None in [betika_match_data["home"], betika_match_data["draw"], betika_match_data["away"]]:
+                print(f"⚠️ Incomplete odds for {match['home']} vs {match['away']}")
+                continue
+            
+            betika_odds = {
+                "home": betika_match_data["home"],
+                "draw": betika_match_data["draw"],
+                "away": betika_match_data["away"]
+            }
             
             # Kugeuza asilimia kuwa Expected Goals (xG) ili kutumia Poisson Matrix
             home_xg = match["p_h"] * 2.5
@@ -170,30 +201,57 @@ def run_wakalio_model():
                     if (h + a) > 2:
                         prob_over_2_5 += p_score
 
-            # 2. LOW-VARIANCE MARKET ENGINE (Uteuzi wa soko lenye ushindi wa juu zaidi)
+            # 2. LOW-VARIANCE MARKET ENGINE
             prob_1X = prob_home_win + prob_draw
             prob_X2 = prob_away_win + prob_draw
             prob_dnb = prob_home_win / (prob_home_win + prob_away_win) if (prob_home_win + prob_away_win) > 0 else 0.5
             
-            # Kupata soko salama kulingana na vigezo vyako
-            if prob_1X > 0.80:
-                recommended_market = "Double Chance (1X)"
+            # Determine market and variance level
+            recommended_market = None
+            final_prob = None
+            est_odds = None
+            variance_level = None
+            
+            # TIER 1: Ultra-safe (very low variance) - >85%
+            if prob_1X > 0.85:
+                recommended_market = "1X Double Chance"
                 final_prob = prob_1X
                 est_odds = round(1 / (prob_1X * 0.9), 2)
-            elif prob_over_1_5 > 0.82:
+                variance_level = "ULTRA-SAFE"
+                variance_breakdown["ULTRA-SAFE"] += 1
+            
+            # TIER 2: Safe (low variance) - Over 2.5 >85%
+            elif prob_over_2_5 > 0.85:
+                recommended_market = "Over 2.5 Goals"
+                final_prob = prob_over_2_5
+                est_odds = round(1 / (prob_over_2_5 * 0.9), 2)
+                variance_level = "LOW"
+                variance_breakdown["LOW"] += 1
+            
+            # TIER 3: Low-Medium variance - Over 1.5 >83% or Double Chance >80%
+            elif prob_over_1_5 > 0.83:
                 recommended_market = "Over 1.5 Goals"
                 final_prob = prob_over_1_5
                 est_odds = round(1 / (prob_over_1_5 * 0.9), 2)
+                variance_level = "LOW-MEDIUM"
+                variance_breakdown["LOW-MEDIUM"] += 1
+            
+            # TIER 4: Medium variance - X2 or DNB >75%
+            elif prob_X2 > 0.75:
+                recommended_market = "X2 Double Chance"
+                final_prob = prob_X2
+                est_odds = round(1 / (prob_X2 * 0.85), 2)
+                variance_level = "MEDIUM"
+                variance_breakdown["MEDIUM"] += 1
+            
+            # Skip very risky picks
             else:
-                recommended_market = "Draw No Bet (DNB 1)"
-                final_prob = prob_dnb
-                est_odds = round(betika_odds["home"] * 0.75, 2)
+                continue
 
             # 3. KELLY CRITERION BANKROLL MANAGEMENT
             kelly_stake_pct = 0.0
             if est_odds > 1:
                 kelly_formula = ((est_odds * final_prob) - 1) / (est_odds - 1)
-                # Fractional Kelly (0.5) kuzuia upotezaji mkubwa wa mtaji
                 kelly_stake_pct = max(0, round((kelly_formula * 100) * 0.5, 1))
 
             # 4. HUNT FOR VALUE ON BETIKA LIVE
@@ -202,19 +260,22 @@ def run_wakalio_model():
 
             processed_predictions.append({
                 "fixture": f"{match['home']} vs {match['away']}",
+                "betika_match": betika_match_data["betika_match"],
                 "raw_probabilities": {
                     "Home": f"{round(prob_home_win*100)}%",
                     "Draw": f"{round(prob_draw*100)}%",
                     "Away": f"{round(prob_away_win*100)}%",
+                    "Over 1.5": f"{round(prob_over_1_5*100)}%",
                     "Over 2.5": f"{round(prob_over_2_5*100)}%"
                 },
                 "recommended_tip": recommended_market,
                 "tip_probability": f"{round(final_prob*100)}%",
                 "estimated_odds": est_odds,
+                "variance": variance_level,
                 "betika_odds": {
-                    "home": betika_odds["home"],
-                    "draw": betika_odds["draw"],
-                    "away": betika_odds["away"]
+                    "home": round(betika_odds["home"], 2),
+                    "draw": round(betika_odds["draw"], 2),
+                    "away": round(betika_odds["away"], 2)
                 },
                 "kelly_stake": f"{kelly_stake_pct}%",
                 "live_value_hunt": live_hunt
@@ -224,9 +285,22 @@ def run_wakalio_model():
             continue
 
     # Hifadhi matokeo kwenye folda ya 'docs' kwa ajili ya Web Dashboard ya GitHub Pages
+    if not processed_predictions:
+        print("❌ No low-variance predictions generated!")
+        print(f"   Forebet matches: {len(raw_fixtures)}")
+        print(f"   Betika events: {len(betika_events)}")
+        print(f"   Matched: {betika_matched}")
+        sys.exit(1)
+    
     output_data = {
         "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S EAT"),
         "total_matches": len(processed_predictions),
+        "stats": {
+            "forebet_matches": len(raw_fixtures),
+            "betika_events": len(betika_events),
+            "betika_matched": betika_matched,
+            "variance_breakdown": variance_breakdown
+        },
         "predictions": processed_predictions[:20]
     }
     
@@ -234,7 +308,16 @@ def run_wakalio_model():
     with open('docs/predictions.json', 'w') as f:
         json.dump(output_data, f, indent=4)
     
-    print(f"✅ Mchakato Umekamilika kwa Usahihi! Generated {len(processed_predictions)} predictions")
+    print(f"✅ Mchakato Umekamilika kwa Usahihi!")
+    print(f"📊 Forebet matches: {len(raw_fixtures)}")
+    print(f"📊 Betika events: {len(betika_events)}")
+    print(f"📊 Matched on Betika: {betika_matched}")
+    print(f"📊 Variance Breakdown:")
+    print(f"   - ULTRA-SAFE (>85% 1X): {variance_breakdown['ULTRA-SAFE']}")
+    print(f"   - LOW (>85% Over 2.5): {variance_breakdown['LOW']}")
+    print(f"   - LOW-MEDIUM (>83% Over 1.5): {variance_breakdown['LOW-MEDIUM']}")
+    print(f"   - MEDIUM (>75% X2): {variance_breakdown['MEDIUM']}")
+    print(f"📊 Final predictions: {len(processed_predictions)}")
     print(f"📊 Data saved to docs/predictions.json")
 
 if __name__ == "__main__":

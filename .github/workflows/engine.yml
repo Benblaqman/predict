@@ -10,17 +10,42 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    timeout-minutes: 10
       
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install requests beautifulsoup4 pandas scipy
-      - run: python predict.py
-      - run: |
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      - name: Run prediction engine
+        id: predict
+        run: python predict.py
+        timeout-minutes: 5
+      
+      - name: Configure git
+        run: |
           git config --global user.name "Wakalio Bot"
           git config --global user.email "engine@wakalio.local"
-          git add docs/predictions.json
-          git commit -m "Update predictions" || true
-          git push origin main
+      
+      - name: Commit and push predictions
+        if: success()
+        run: |
+          if [ -f docs/predictions.json ]; then
+            git add docs/predictions.json
+            git commit -m "Update predictions - $(date +'%Y-%m-%d %H:%M:%S')" || true
+            git push origin main
+          else
+            echo "❌ predictions.json not found - engine may have failed"
+            exit 1
+          fi
+      
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "❌ Prediction engine failed"
+          exit 1

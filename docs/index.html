@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Betting Engine Dashboard - Betika Tips</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc; 
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .wrapper { max-width: 1200px; margin: 0 auto; }
+        header { 
+            border-bottom: 3px solid #22c55e; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px;
+            background: rgba(34, 197, 94, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1 { color: #22c55e; margin: 0; font-size: 2.5rem; }
+        .meta { 
+            color: #94a3b8; 
+            font-size: 0.95rem;
+            margin-top: 10px;
+        }
+        .status { 
+            display: inline-block;
+            padding: 8px 16px;
+            background: #334155;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        .status.active { background: #22c55e; color: #0f172a; }
+        
+        .grid { 
+            display: grid; 
+            gap: 20px; 
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        }
+        .card { 
+            background-color: #1e293b; 
+            padding: 25px; 
+            border-radius: 12px; 
+            border: 2px solid #334155;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .card:hover { 
+            border-color: #22c55e;
+            box-shadow: 0 8px 16px rgba(34, 197, 94, 0.2);
+            transform: translateY(-4px);
+        }
+        
+        .fixture { 
+            font-size: 1.4rem; 
+            font-weight: bold; 
+            color: #f1f5f9; 
+            margin-bottom: 15px;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+        
+        .badges { 
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .badge { 
+            background: #22c55e; 
+            color: #0f172a; 
+            padding: 6px 12px; 
+            font-weight: bold; 
+            border-radius: 6px; 
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        .live-hunt { 
+            background: #ef4444; 
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .data-section {
+            margin-bottom: 15px;
+        }
+        .section-title {
+            font-size: 0.9rem;
+            color: #22c55e;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        ul { list-style: none; padding: 0; }
+        li { 
+            padding: 8px 0; 
+            border-bottom: 1px solid #334155; 
+            display: flex; 
+            justify-content: space-between;
+            align-items: center;
+        }
+        li:last-child { border-bottom: none; }
+        
+        .label { 
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .value { 
+            font-weight: bold;
+            color: #f1f5f9;
+        }
+        .value.positive { color: #22c55e; }
+        .value.warning { color: #fbbf24; }
+        .value.negative { color: #ef4444; }
+        
+        .odds-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .odds-box {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+        .odds-label { font-size: 0.75rem; color: #94a3b8; }
+        .odds-value { font-size: 1.3rem; font-weight: bold; color: #22c55e; }
+        
+        .error-state {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+        .error-state h2 { color: #ef4444; margin-bottom: 10px; }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #334155;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <h1>⚽ Wakalio Mathematical Engine</h1>
+            <p class="meta">
+                Betika Betting Tips Based on Mathematical Analysis
+                <br>
+                Last Updated: <span id="runtime-stamp" class="status">Loading live data feed...</span>
+            </p>
+        </header>
+        
+        <div class="grid" id="dashboard-target"></div>
+        
+        <footer>
+            <p>🤖 Automated predictions powered by Poisson Distribution, Kelly Criterion & Betika API</p>
+            <p>Data refreshes daily. Use responsibly.</p>
+        </footer>
+    </div>
+
+    <script>
+        const PREDICTIONS_URL = 'predictions.json';
+        const CACHE_BUST = `?t=${Date.now()}`;
+
+        function renderDashboard(data) {
+            const stamp = document.getElementById('runtime-stamp');
+            stamp.innerText = data.last_updated || 'Unknown';
+            stamp.classList.add('active');
+
+            let html = '';
+            
+            if (!data.predictions || data.predictions.length === 0) {
+                html = `
+                    <div style="grid-column: 1/-1;" class="error-state">
+                        <h2>⏳ No Predictions Available</h2>
+                        <p>Waiting for the automated engine to generate predictions...</p>
+                        <p>Check back in a few minutes or refresh the page.</p>
+                    </div>
+                `;
+            } else {
+                data.predictions.forEach(item => {
+                    const liveHunt = item.live_value_hunt === "YES";
+                    const liveBadge = liveHunt ? `<span class="badge live-hunt">🔥 VALUE FOUND</span>` : '';
+                    
+                    const probabilities = item.raw_probabilities || {};
+                    const betika = item.betika_odds || { home: '-', draw: '-', away: '-' };
+                    
+                    html += `
+                    <div class="card">
+                        <div class="fixture">${item.fixture || 'N/A'}</div>
+                        
+                        <div class="badges">
+                            <span class="badge">TIP: ${item.recommended_tip || 'N/A'}</span>
+                            ${liveBadge}
+                        </div>
+
+                        <div class="data-section">
+                            <div class="section-title">📊 Model Prediction</div>
+                            <ul>
+                                <li>
+                                    <span class="label">Model Probability:</span> 
+                                    <span class="value positive">${item.tip_probability || 'N/A'}</span>
+                                </li>
+                                <li>
+                                    <span class="label">Estimated Value Odds:</span> 
+                                    <span class="value">${item.estimated_odds || 'N/A'}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="data-section">
+                            <div class="section-title">💰 Betika Live Odds</div>
+                            <div class="odds-container">
+                                <div class="odds-box">
+                                    <div class="odds-label">HOME (1)</div>
+                                    <div class="odds-value">${betika.home}</div>
+                                </div>
+                                <div class="odds-box">
+                                    <div class="odds-label">DRAW (X)</div>
+                                    <div class="odds-value">${betika.draw}</div>
+                                </div>
+                                <div class="odds-box">
+                                    <div class="odds-label">AWAY (2)</div>
+                                    <div class="odds-value">${betika.away}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="data-section">
+                            <div class="section-title">📈 1X2 Probabilities</div>
+                            <ul>
+                                <li>
+                                    <span class="label">Home Win:</span> 
+                                    <span class="value">${probabilities['Home'] || 'N/A'}</span>
+                                </li>
+                                <li>
+                                    <span class="label">Draw:</span> 
+                                    <span class="value warning">${probabilities['Draw'] || 'N/A'}</span>
+                                </li>
+                                <li>
+                                    <span class="label">Away Win:</span> 
+                                    <span class="value">${probabilities['Away'] || 'N/A'}</span>
+                                </li>
+                                <li>
+                                    <span class="label">Over 2.5 Goals:</span> 
+                                    <span class="value">${probabilities['Over 2.5'] || 'N/A'}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="data-section">
+                            <div class="section-title">🎲 Kelly Criterion</div>
+                            <ul>
+                                <li>
+                                    <span class="label">Recommended Stake:</span> 
+                                    <span class="value positive">${item.kelly_stake || 'N/A'}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>`;
+                });
+            }
+            
+            document.getElementById('dashboard-target').innerHTML = html;
+        }
+
+        // Load predictions
+        fetch(PREDICTIONS_URL + CACHE_BUST)
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then(data => renderDashboard(data))
+            .catch(err => {
+                console.error('Load error:', err);
+                document.getElementById('runtime-stamp').innerText = 'Load Failed - Retrying...';
+                document.getElementById('runtime-stamp').classList.remove('active');
+                
+                // Retry after 10 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 10000);
+            });
+    </script>
+</body>
+</html>

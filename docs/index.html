@@ -1,39 +1,380 @@
+html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wakalio Mathematical Engine - Betika Tips</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #f8fafc; 
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .wrapper { max-width: 1400px; margin: 0 auto; }
-        
-        header { 
-            border-bottom: 3px solid #22c55e; 
-            padding: 20px;
-            margin-bottom: 30px;
-            background: rgba(34, 197, 94, 0.05);
-            border-radius: 8px;
-        }
-        h1 { color: #22c55e; margin: 0; font-size: 2.5rem; }
-        .meta { 
-            color: #94a3b8; 
-            font-size: 0.95rem;
-            margin-top: 10px;
-        }
-        .status { 
-            display: inline-block;
-            padding: 8px 16px;
-            background: #334155;
-            border-radius: 6px;
-            font-size: 0.9rem;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Wakalio Mathematical Engine</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Segoe UI,Arial,sans-serif;
+}
+
+body{
+background:#111827;
+color:white;
+padding:20px;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+header{
+text-align:center;
+margin-bottom:25px;
+}
+
+header h1{
+color:#22c55e;
+font-size:36px;
+}
+
+header p{
+color:#94a3b8;
+margin-top:8px;
+}
+
+.stats{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+gap:15px;
+margin-bottom:30px;
+}
+
+.card{
+background:#1f2937;
+padding:18px;
+border-radius:10px;
+text-align:center;
+}
+
+.card h2{
+font-size:30px;
+color:#22c55e;
+}
+
+.card p{
+color:#94a3b8;
+margin-top:5px;
+}
+
+.matches{
+display:flex;
+flex-direction:column;
+gap:12px;
+}
+
+.match{
+background:#1f2937;
+border-left:5px solid #22c55e;
+padding:18px;
+border-radius:8px;
+cursor:pointer;
+transition:.3s;
+}
+
+.match:hover{
+background:#263445;
+}
+
+.top{
+display:flex;
+justify-content:space-between;
+align-items:center;
+flex-wrap:wrap;
+}
+
+.fixture{
+font-size:20px;
+font-weight:bold;
+}
+
+.tip{
+background:#22c55e;
+color:#111827;
+padding:7px 14px;
+border-radius:6px;
+font-weight:bold;
+}
+
+.bottom{
+display:flex;
+justify-content:space-between;
+margin-top:12px;
+font-size:14px;
+color:#cbd5e1;
+}
+
+.analysis{
+display:none;
+margin-top:18px;
+padding-top:18px;
+border-top:1px solid #374151;
+}
+
+.analysis table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+.analysis td{
+padding:8px;
+border-bottom:1px solid #374151;
+}
+
+.analysis h3{
+color:#22c55e;
+margin-bottom:8px;
+}
+
+footer{
+margin-top:40px;
+text-align:center;
+color:#94a3b8;
+}
+
+@media(max-width:700px){
+
+.top{
+flex-direction:column;
+align-items:flex-start;
+gap:10px;
+}
+
+.bottom{
+flex-direction:column;
+gap:8px;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<header>
+
+<h1>⚽ Wakalio Mathematical Engine</h1>
+
+<p id="updated">Loading...</p>
+
+</header>
+
+<div class="stats">
+
+<div class="card">
+<h2 id="games">0</h2>
+<p>Matches</p>
+</div>
+
+<div class="card">
+<h2 id="ultra">0</h2>
+<p>Ultra Safe</p>
+</div>
+
+<div class="card">
+<h2 id="low">0</h2>
+<p>Low Risk</p>
+</div>
+
+<div class="card">
+<h2 id="medium">0</h2>
+<p>Medium Risk</p>
+</div>
+
+</div>
+
+<div class="matches" id="matches">
+
+</div>
+
+<footer>
+
+Powered by Poisson Distribution • Kelly Criterion • Wakalio Engine
+
+</footer>
+
+</div>
+
+<script>
+
+fetch("predictions.json?"+Date.now())
+
+.then(r=>r.json())
+
+.then(data=>{
+
+document.getElementById("updated").innerHTML="Updated : "+data.last_updated;
+
+document.getElementById("games").innerHTML=data.predictions.length;
+
+document.getElementById("ultra").innerHTML=data.stats.variance_breakdown["ULTRA-SAFE"]||0;
+
+document.getElementById("low").innerHTML=data.stats.variance_breakdown["LOW"]||0;
+
+document.getElementById("medium").innerHTML=data.stats.variance_breakdown["MEDIUM"]||0;
+
+let html="";
+
+data.predictions.forEach((m,i)=>{
+
+html+=`
+
+<div class="match" onclick="toggle(${i})">
+
+<div class="top">
+
+<div class="fixture">
+
+${m.fixture}
+
+</div>
+
+<div class="tip">
+
+${m.recommended_tip}
+
+</div>
+
+</div>
+
+<div class="bottom">
+
+<div>
+
+Confidence : <b>${m.tip_probability}</b>
+
+</div>
+
+<div>
+
+Variance : <b>${m.variance}</b>
+
+</div>
+
+</div>
+
+<div class="analysis" id="a${i}">
+
+<h3>Engine Analysis</h3>
+
+<p>
+
+${m.analysis || "Prediction generated from Poisson Distribution, Expected Goals, Kelly Criterion and variance filtering."}
+
+</p>
+
+<table>
+
+<tr>
+
+<td>Home Win</td>
+
+<td>${m.raw_probabilities.Home}</td>
+
+</tr>
+
+<tr>
+
+<td>Draw</td>
+
+<td>${m.raw_probabilities.Draw}</td>
+
+</tr>
+
+<tr>
+
+<td>Away Win</td>
+
+<td>${m.raw_probabilities.Away}</td>
+
+</tr>
+
+<tr>
+
+<td>Over 1.5</td>
+
+<td>${m.raw_probabilities["Over 1.5"]}</td>
+
+</tr>
+
+<tr>
+
+<td>Over 2.5</td>
+
+<td>${m.raw_probabilities["Over 2.5"]}</td>
+
+</tr>
+
+<tr>
+
+<td>Estimated Odds</td>
+
+<td>${m.estimated_odds}</td>
+
+</tr>
+
+<tr>
+
+<td>Kelly Stake</td>
+
+<td>${m.kelly_stake}</td>
+
+</tr>
+
+</table>
+
+</div>
+
+</div>
+
+`;
+
+});
+
+document.getElementById("matches").innerHTML=html;
+
+})
+
+.catch(()=>{
+
+document.getElementById("matches").innerHTML="<h2>Unable to load today's predictions.</h2>";
+
+});
+
+function toggle(id){
+
+let x=document.getElementById("a"+id);
+
+if(x.style.display==="block")
+
+x.style.display="none";
+
+else
+
+x.style.display="block";
+
+}
+
+</script>
+
+</body>
+
+</html>
+```
             margin-top: 10px;
         }
         .status.active { background: #22c55e; color: #0f172a; }

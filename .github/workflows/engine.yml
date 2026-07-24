@@ -1,0 +1,26 @@
+name: Run Wakalio Predictive Engine
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  calculate-predictions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests beautifulsoup4 pandas scipy
+      - run: python predict.py
+      - run: |
+          git config --global user.name "Wakalio Bot"
+          git config --global user.email "engine@wakalio.local"
+          git add docs/predictions.json
+          git commit -m "Update predictions" || true
+          git push origin main

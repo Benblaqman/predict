@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mathematical Betting Engine Dashboard - Betika Tips</title>
+    <title>Wakalio Mathematical Engine - Betika Tips</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -13,13 +13,13 @@
             padding: 20px;
             min-height: 100vh;
         }
-        .wrapper { max-width: 1200px; margin: 0 auto; }
+        .wrapper { max-width: 1400px; margin: 0 auto; }
+        
         header { 
             border-bottom: 3px solid #22c55e; 
-            padding-bottom: 20px; 
+            padding: 20px;
             margin-bottom: 30px;
             background: rgba(34, 197, 94, 0.05);
-            padding: 20px;
             border-radius: 8px;
         }
         h1 { color: #22c55e; margin: 0; font-size: 2.5rem; }
@@ -38,123 +38,202 @@
         }
         .status.active { background: #22c55e; color: #0f172a; }
         
-        .grid { 
-            display: grid; 
-            gap: 20px; 
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
         }
-        .card { 
-            background-color: #1e293b; 
-            padding: 25px; 
-            border-radius: 12px; 
+        .stat-card {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-value { font-size: 2rem; font-weight: bold; color: #22c55e; }
+        .stat-label { font-size: 0.85rem; color: #94a3b8; margin-top: 5px; }
+        
+        .matches-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .match-row {
+            background: #1e293b;
             border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr auto;
+            gap: 15px;
+            align-items: center;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            cursor: pointer;
         }
-        .card:hover { 
+        .match-row:hover {
             border-color: #22c55e;
-            box-shadow: 0 8px 16px rgba(34, 197, 94, 0.2);
-            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+            transform: translateX(4px);
         }
         
-        .fixture { 
-            font-size: 1.4rem; 
-            font-weight: bold; 
-            color: #f1f5f9; 
-            margin-bottom: 15px;
-            border-bottom: 2px solid #334155;
-            padding-bottom: 10px;
+        .match-info h3 {
+            font-size: 1.1rem;
+            color: #f1f5f9;
+            margin-bottom: 5px;
+        }
+        .match-source {
+            font-size: 0.8rem;
+            color: #94a3b8;
         }
         
-        .badges { 
+        .tip-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .tip-badge {
+            background: #22c55e;
+            color: #0f172a;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .tip-badge.ultra-safe { background: #10b981; }
+        .tip-badge.low { background: #22c55e; }
+        .tip-badge.low-medium { background: #fbbf24; color: #1e1e1e; }
+        .tip-badge.medium { background: #f97316; }
+        
+        .variance-indicator {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+        
+        .odds-display {
             display: flex;
             gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .badge { 
-            background: #22c55e; 
-            color: #0f172a; 
-            padding: 6px 12px; 
-            font-weight: bold; 
-            border-radius: 6px; 
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-        .live-hunt { 
-            background: #ef4444; 
-            color: white;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .data-section {
-            margin-bottom: 15px;
-        }
-        .section-title {
-            font-size: 0.9rem;
-            color: #22c55e;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-        
-        ul { list-style: none; padding: 0; }
-        li { 
-            padding: 8px 0; 
-            border-bottom: 1px solid #334155; 
-            display: flex; 
-            justify-content: space-between;
             align-items: center;
         }
-        li:last-child { border-bottom: none; }
-        
-        .label { 
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }
-        .value { 
+        .odds-pill {
+            background: #0f172a;
+            border: 1px solid #22c55e;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.85rem;
             font-weight: bold;
+            color: #22c55e;
+        }
+        
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .btn-betika {
+            background: #22c55e;
+            color: #0f172a;
+        }
+        .btn-betika:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+        .btn-details {
+            background: #334155;
             color: #f1f5f9;
         }
-        .value.positive { color: #22c55e; }
-        .value.warning { color: #fbbf24; }
-        .value.negative { color: #ef4444; }
+        .btn-details:hover {
+            background: #475569;
+        }
         
-        .odds-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 15px;
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
-        .odds-box {
-            background: #0f172a;
-            padding: 10px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid #334155;
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid #22c55e;
         }
-        .odds-label { font-size: 0.75rem; color: #94a3b8; }
-        .odds-value { font-size: 1.3rem; font-weight: bold; color: #22c55e; }
+        .modal-close {
+            float: right;
+            font-size: 28px;
+            cursor: pointer;
+            color: #94a3b8;
+        }
+        .modal-close:hover { color: #22c55e; }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #334155;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: #94a3b8; }
+        .detail-value { color: #22c55e; font-weight: bold; }
         
         .error-state {
             text-align: center;
-            padding: 40px;
+            padding: 60px 20px;
             color: #94a3b8;
         }
         .error-state h2 { color: #ef4444; margin-bottom: 10px; }
         
         footer {
             text-align: center;
-            margin-top: 40px;
+            margin-top: 50px;
             padding-top: 20px;
             border-top: 1px solid #334155;
             color: #64748b;
             font-size: 0.9rem;
+        }
+        
+        .value-hunt {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @media (max-width: 1024px) {
+            .match-row {
+                grid-template-columns: 1.5fr 1fr 1fr;
+            }
+            .action-btns { flex-direction: column; }
+        }
+
+        @media (max-width: 768px) {
+            .match-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .tip-section, .odds-display, .action-btns { flex-direction: column; }
         }
     </style>
 </head>
@@ -165,15 +244,23 @@
             <p class="meta">
                 Betika Betting Tips Based on Mathematical Analysis
                 <br>
-                Last Updated: <span id="runtime-stamp" class="status">Loading live data feed...</span>
+                Last Updated: <span id="runtime-stamp" class="status">Loading...</span>
             </p>
         </header>
         
-        <div class="grid" id="dashboard-target"></div>
+        <div class="stats-bar" id="stats-bar"></div>
+        <div class="matches-list" id="dashboard-target"></div>
+        
+        <div class="modal" id="detailsModal">
+            <div class="modal-content">
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+                <div id="modalBody"></div>
+            </div>
+        </div>
         
         <footer>
-            <p>🤖 Automated predictions powered by Poisson Distribution, Kelly Criterion & Betika API</p>
-            <p>Data refreshes daily. Use responsibly.</p>
+            <p>🤖 Powered by Poisson Distribution, Kelly Criterion & Betika API | Updates Daily</p>
+            <p>⚠️ Disclaimer: Predictions are for analysis only. Bet responsibly.</p>
         </footer>
     </div>
 
@@ -181,16 +268,135 @@
         const PREDICTIONS_URL = 'predictions.json';
         const CACHE_BUST = `?t=${Date.now()}`;
 
+        function getVarianceColor(variance) {
+            const colors = {
+                'ULTRA-SAFE': '#10b981',
+                'LOW': '#22c55e',
+                'LOW-MEDIUM': '#fbbf24',
+                'MEDIUM': '#f97316'
+            };
+            return colors[variance] || '#22c55e';
+        }
+
+        function getVarianceBadgeClass(variance) {
+            return variance ? variance.toLowerCase().replace(/\s+/g, '-') : 'low';
+        }
+
+        function showDetails(item) {
+            const modal = document.getElementById('detailsModal');
+            const body = document.getElementById('modalBody');
+            
+            const probs = item.raw_probabilities || {};
+            const kelly = (item.kelly_stake || '0%').replace('%', '');
+            
+            body.innerHTML = `
+                <h2>${item.fixture}</h2>
+                <hr style="border: 1px solid #334155; margin: 15px 0;">
+                
+                <h3 style="color: #22c55e; margin-bottom: 10px;">📊 Analysis</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Recommended Tip:</span>
+                    <span class="detail-value">${item.recommended_tip}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Confidence:</span>
+                    <span class="detail-value">${item.tip_probability}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Variance Level:</span>
+                    <span class="detail-value">${item.variance}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Estimated Odds:</span>
+                    <span class="detail-value">${item.estimated_odds}</span>
+                </div>
+                
+                <h3 style="color: #22c55e; margin: 20px 0 10px 0;">📈 Probabilities</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Home Win:</span>
+                    <span class="detail-value">${probs['Home'] || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Draw:</span>
+                    <span class="detail-value">${probs['Draw'] || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Away Win:</span>
+                    <span class="detail-value">${probs['Away'] || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Over 1.5 Goals:</span>
+                    <span class="detail-value">${probs['Over 1.5'] || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Over 2.5 Goals:</span>
+                    <span class="detail-value">${probs['Over 2.5'] || 'N/A'}</span>
+                </div>
+                
+                <h3 style="color: #22c55e; margin: 20px 0 10px 0;">💰 Betika Odds</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Home (1):</span>
+                    <span class="detail-value">${item.betika_odds.home}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Draw (X):</span>
+                    <span class="detail-value">${item.betika_odds.draw}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Away (2):</span>
+                    <span class="detail-value">${item.betika_odds.away}</span>
+                </div>
+                
+                <h3 style="color: #22c55e; margin: 20px 0 10px 0;">🎲 Bankroll</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Kelly Stake %:</span>
+                    <span class="detail-value">${kelly}%</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Value Hunt:</span>
+                    <span class="detail-value">${item.live_value_hunt}</span>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+        }
+
         function renderDashboard(data) {
             const stamp = document.getElementById('runtime-stamp');
             stamp.innerText = data.last_updated || 'Unknown';
             stamp.classList.add('active');
 
+            // Render stats
+            const stats = data.stats || {};
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="stat-value">${data.predictions.length}</div>
+                    <div class="stat-label">Tips Generated</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.betika_matched || 0}</div>
+                    <div class="stat-label">Matched on Betika</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.variance_breakdown?.['ULTRA-SAFE'] || 0}</div>
+                    <div class="stat-label">Ultra-Safe Tips</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.variance_breakdown?.['LOW'] || 0}</div>
+                    <div class="stat-label">Low Variance</div>
+                </div>
+            `;
+            document.getElementById('stats-bar').innerHTML = statsHtml;
+
             let html = '';
             
             if (!data.predictions || data.predictions.length === 0) {
                 html = `
-                    <div style="grid-column: 1/-1;" class="error-state">
+                    <div class="error-state">
                         <h2>⏳ No Predictions Available</h2>
                         <p>Waiting for the automated engine to generate predictions...</p>
                         <p>Check back in a few minutes or refresh the page.</p>
@@ -198,85 +404,40 @@
                 `;
             } else {
                 data.predictions.forEach(item => {
-                    const liveHunt = item.live_value_hunt === "YES";
-                    const liveBadge = liveHunt ? `<span class="badge live-hunt">🔥 VALUE FOUND</span>` : '';
-                    
-                    const probabilities = item.raw_probabilities || {};
-                    const betika = item.betika_odds || { home: '-', draw: '-', away: '-' };
+                    const varianceBadgeClass = getVarianceBadgeClass(item.variance);
+                    const valueHunt = item.live_value_hunt === "YES" ? ' value-hunt' : '';
                     
                     html += `
-                    <div class="card">
-                        <div class="fixture">${item.fixture || 'N/A'}</div>
+                    <div class="match-row">
+                        <div class="match-info">
+                            <h3>${item.fixture}</h3>
+                            <div class="match-source">📍 ${item.betika_match || 'Betika'}</div>
+                        </div>
                         
-                        <div class="badges">
-                            <span class="badge">TIP: ${item.recommended_tip || 'N/A'}</span>
-                            ${liveBadge}
+                        <div class="tip-section">
+                            <div class="tip-badge ${varianceBadgeClass}${valueHunt}">
+                                ${item.recommended_tip}
+                            </div>
+                            <div class="variance-indicator">${item.variance}</div>
                         </div>
-
-                        <div class="data-section">
-                            <div class="section-title">📊 Model Prediction</div>
-                            <ul>
-                                <li>
-                                    <span class="label">Model Probability:</span> 
-                                    <span class="value positive">${item.tip_probability || 'N/A'}</span>
-                                </li>
-                                <li>
-                                    <span class="label">Estimated Value Odds:</span> 
-                                    <span class="value">${item.estimated_odds || 'N/A'}</span>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div class="data-section">
-                            <div class="section-title">💰 Betika Live Odds</div>
-                            <div class="odds-container">
-                                <div class="odds-box">
-                                    <div class="odds-label">HOME (1)</div>
-                                    <div class="odds-value">${betika.home}</div>
-                                </div>
-                                <div class="odds-box">
-                                    <div class="odds-label">DRAW (X)</div>
-                                    <div class="odds-value">${betika.draw}</div>
-                                </div>
-                                <div class="odds-box">
-                                    <div class="odds-label">AWAY (2)</div>
-                                    <div class="odds-value">${betika.away}</div>
-                                </div>
+                        
+                        <div class="odds-display">
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">Confidence</div>
+                                <div class="odds-pill">${item.tip_probability}</div>
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">Est. Odds</div>
+                                <div class="odds-pill">${item.estimated_odds}</div>
                             </div>
                         </div>
-
-                        <div class="data-section">
-                            <div class="section-title">📈 1X2 Probabilities</div>
-                            <ul>
-                                <li>
-                                    <span class="label">Home Win:</span> 
-                                    <span class="value">${probabilities['Home'] || 'N/A'}</span>
-                                </li>
-                                <li>
-                                    <span class="label">Draw:</span> 
-                                    <span class="value warning">${probabilities['Draw'] || 'N/A'}</span>
-                                </li>
-                                <li>
-                                    <span class="label">Away Win:</span> 
-                                    <span class="value">${probabilities['Away'] || 'N/A'}</span>
-                                </li>
-                                <li>
-                                    <span class="label">Over 2.5 Goals:</span> 
-                                    <span class="value">${probabilities['Over 2.5'] || 'N/A'}</span>
-                                </li>
-                            </ul>
+                        
+                        <div class="action-btns">
+                            <button class="btn btn-details" onclick="showDetails(${JSON.stringify(item).replace(/"/g, '&quot;')})">Details</button>
+                            <button class="btn btn-betika" onclick="window.open('https://www.betika.com', '_blank')">Betika</button>
                         </div>
-
-                        <div class="data-section">
-                            <div class="section-title">🎲 Kelly Criterion</div>
-                            <ul>
-                                <li>
-                                    <span class="label">Recommended Stake:</span> 
-                                    <span class="value positive">${item.kelly_stake || 'N/A'}</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>`;
+                    </div>
+                    `;
                 });
             }
             
@@ -292,14 +453,27 @@
             .then(data => renderDashboard(data))
             .catch(err => {
                 console.error('Load error:', err);
-                document.getElementById('runtime-stamp').innerText = 'Load Failed - Retrying...';
+                document.getElementById('runtime-stamp').innerText = 'Load Failed';
                 document.getElementById('runtime-stamp').classList.remove('active');
                 
-                // Retry after 10 seconds
-                setTimeout(() => {
-                    window.location.reload();
-                }, 10000);
+                const target = document.getElementById('dashboard-target');
+                target.innerHTML = `
+                    <div class="error-state">
+                        <h2>❌ Failed to Load Data</h2>
+                        <p>Engine may be running. Retrying in 10 seconds...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => window.location.reload(), 10000);
             });
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('detailsModal');
+            if (event.target === modal) {
+                modal.classList.remove('active');
+            }
+        }
     </script>
 </body>
 </html>

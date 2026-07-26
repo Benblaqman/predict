@@ -1,575 +1,370 @@
 #!/usr/bin/env python3
-"""
-validate_slips.py
 
-Validates optimized betting slips.
+"""
+validate_matches.py
+
+Validates collected football fixtures before analysis.
 
 Input:
-    engine/data/optimized_slips.json
+    data/fixtures.json
 
-Output:
-    engine/data/slip_validation.json
+Outputs:
+    data/fixtures_validated.json
+    data/match_validation.json
 
 Checks:
-- File exists
-- JSON integrity
-- Slip count
-- Match count per slip
-- Duplicate fixtures
-- Invalid odds
-- Invalid confidence
-- Contradictory markets
-- Risk consistency
 
-Exit:
-0 = validation passed
-1 = validation failed
+- Required fields
+- Valid teams
+- Future kickoff time
+- Duplicate fixtures
+- Correct fixture count
 """
 
 
-from __future__ import annotations
-
-import json
-import sys
 from pathlib import Path
+import json
 from datetime import datetime, timezone
 
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
 
-SLIPS_FILE = Path(
-    "engine/data/optimized_slips.json"
-)
-
-REPORT_FILE = Path(
-    "engine/data/slip_validation.json"
+INPUT_FILE = Path(
+    "data/fixtures.json"
 )
 
 
-EXPECTED_SLIPS = 10
+VALID_OUTPUT = Path(
+    "data/fixtures_validated.json"
+)
 
-MATCHES_PER_SLIP = 5
+
+REPORT_OUTPUT = Path(
+    "data/match_validation.json"
+)
 
 
-MIN_CONFIDENCE = 65
+
+MIN_MATCHES = 1
+MAX_MATCHES = 20
+
 
 
 # --------------------------------------------------
-# Helpers
+# Load fixtures
 # --------------------------------------------------
 
 
-errors = []
+def load_fixtures():
 
+    if not INPUT_FILE.exists():
 
-def fail(message):
-
-    errors.append(message)
-
-
-
-def load_slips():
-
-    if not SLIPS_FILE.exists():
-
-        fail(
-            "optimized_slips.json missing"
+        raise FileNotFoundError(
+            "fixtures.json not found"
         )
 
-        return None
+
+    with open(
+        INPUT_FILE,
+        encoding="utf-8"
+    ) as file:
+
+        data = json.load(file)
 
 
-    try:
-
-        with open(
-            SLIPS_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            return json.load(file)
-
-
-    except Exception as e:
-
-        fail(
-            f"Invalid JSON: {e}"
-        )
-
-        return None
-
-
-
-# --------------------------------------------------
-# Validation Rules
-# --------------------------------------------------
-
-
-def validate_structure(data):
-
-
-    if not data:
-
-        return
-
-
-    slips = data.get(
-        "slips"
+    return data.get(
+        "fixtures",
+        []
     )
 
 
-    if slips is None:
 
-        fail(
-            "Missing slips key"
+# --------------------------------------------------
+# Validate time
+# --------------------------------------------------
+
+
+def valid_kickoff(value):
+
+    try:
+
+        kickoff = datetime.fromisoformat(
+            value.replace(
+                "Z",
+                "+00:00"
+            )
         )
 
-        return
 
-
-
-    if len(slips) != EXPECTED_SLIPS:
-
-        fail(
-
-            f"Expected {EXPECTED_SLIPS} slips "
-            f"but found {len(slips)}"
-
+        now = datetime.now(
+            timezone.utc
         )
 
 
+        return kickoff > now
 
-def validate_slip(
-    slip,
-    index,
-    global_fixtures
-):
+
+    except Exception:
+
+        return False
+
+
+
+# --------------------------------------------------
+# Validate fixture
+# --------------------------------------------------
+
+
+def validate_fixture(match):
 
 
     required = [
 
-        "risk",
-
-        "matches",
-
-        "summary"
+        "id",
+        "home",
+        "away",
+        "kickoff"
 
     ]
 
 
     for field in required:
 
-        if field not in slip:
+        if not match.get(field):
 
-            fail(
-
-                f"Slip {index}: missing {field}"
-
-            )
+            return False
 
 
 
-    matches = slip.get(
-        "matches",
-        []
-    )
+    if match["home"] == match["away"]:
+
+        return False
 
 
-    if len(matches) != MATCHES_PER_SLIP:
 
-        fail(
+    if not valid_kickoff(
+        match["kickoff"]
+    ):
 
-            f"Slip {index}: expected "
-            f"{MATCHES_PER_SLIP} matches"
+        return False
+
+
+
+    return True
+
+
+
+# --------------------------------------------------
+# Remove duplicates
+# --------------------------------------------------
+
+
+def remove_duplicates(fixtures):
+
+
+    unique=[]
+
+    seen=set()
+
+
+
+    for match in fixtures:
+
+
+        key=(
+
+            match["home"],
+
+            match["away"],
+
+            match["kickoff"]
 
         )
 
 
-    local_fixtures = set()
 
-
-
-    for match in matches:
-
-
-        fixture_id = match.get(
-            "fixture_id"
-        )
-
-
-        if fixture_id is None:
-
-            fail(
-
-                f"Slip {index}: missing fixture id"
-
-            )
+        if key in seen:
 
             continue
 
 
 
-        # Duplicate inside same slip
+        seen.add(key)
 
-        if fixture_id in local_fixtures:
-
-            fail(
-
-                f"Slip {index}: duplicate fixture "
-                f"{fixture_id}"
-
-            )
-
-
-        local_fixtures.add(
-            fixture_id
-        )
+        unique.append(match)
 
 
 
-        # Duplicate across slips
-
-        global_fixtures.append(
-            fixture_id
-        )
-
-
-
-        confidence = match.get(
-            "confidence",
-            0
-        )
-
-
-        if confidence < MIN_CONFIDENCE:
-
-            fail(
-
-                f"Slip {index}: "
-                f"{fixture_id} confidence too low "
-                f"({confidence})"
-
-            )
-
-
-
-        odds = match.get(
-            "odds"
-        )
-
-
-        try:
-
-            odds = float(
-                odds
-            )
-
-
-            if odds <= 1:
-
-                fail(
-
-                    f"Slip {index}: invalid odds "
-                    f"{odds}"
-
-                )
-
-
-        except:
-
-            fail(
-
-                f"Slip {index}: invalid odds value"
-
-            )
-
-
-
-        validate_market(
-            match,
-            index
-        )
-
-
-
-def validate_market(
-    match,
-    slip_index
-):
-
-
-    market = match.get(
-        "market"
-    )
-
-
-    valid = [
-
-        "1X",
-
-        "X2",
-
-        "12"
-
-    ]
-
-
-    if market not in valid:
-
-        fail(
-
-            f"Slip {slip_index}: "
-            f"unknown market {market}"
-
-        )
+    return unique
 
 
 
 # --------------------------------------------------
-# Duplicate Analysis
+# Main validation
 # --------------------------------------------------
 
 
-def validate_global_duplicates(
-    fixture_ids
-):
+def validate_matches():
 
 
-    seen = set()
-
-
-    duplicates = set()
-
-
-    for item in fixture_ids:
-
-        if item in seen:
-
-            duplicates.add(
-                item
-            )
-
-        seen.add(
-            item
-        )
-
-
-    for duplicate in duplicates:
-
-        fail(
-
-            f"Fixture appears in multiple slips: "
-            f"{duplicate}"
-
-        )
+    fixtures = load_fixtures()
 
 
 
-# --------------------------------------------------
-# Risk Validation
-# --------------------------------------------------
-
-
-def validate_risk(
-    slip,
-    index
-):
-
-
-    risk = slip.get(
-        "risk"
-    )
-
-
-    confidence = slip.get(
-        "summary",
-        {}
-    ).get(
-        "average_confidence",
-        0
+    original_count=len(
+        fixtures
     )
 
 
 
-    if risk == "ULTRA_SAFE":
+    valid=[]
 
-        if confidence < 85:
-
-            fail(
-
-                f"Slip {index}: "
-                "ULTRA_SAFE confidence too low"
-
-            )
+    rejected=0
 
 
 
-    if risk == "SAFE":
-
-        if confidence < 75:
-
-            fail(
-
-                f"Slip {index}: "
-                "SAFE confidence too low"
-
-            )
+    for match in fixtures:
 
 
+        if validate_fixture(match):
 
-# --------------------------------------------------
-# Report
-# --------------------------------------------------
+            valid.append(match)
+
+        else:
+
+            rejected += 1
 
 
-def save_report():
 
-    REPORT_FILE.parent.mkdir(
-        parents=True,
+    valid = remove_duplicates(
+        valid
+    )
+
+
+
+    duplicate_removed = (
+        original_count
+        -
+        rejected
+        -
+        len(valid)
+    )
+
+
+
+    status = True
+
+
+
+    if len(valid) < MIN_MATCHES:
+
+        status=False
+
+
+
+    if len(valid) > MAX_MATCHES:
+
+        valid = valid[:MAX_MATCHES]
+
+
+
+    # Save cleaned fixtures
+
+    VALID_OUTPUT.parent.mkdir(
         exist_ok=True
     )
 
 
-    report = {
-
-        "checked_at":
-
-            datetime.now(
-                timezone.utc
-            ).isoformat(),
-
-
-        "status":
-
-            "PASS"
-            if not errors
-            else
-            "FAILED",
-
-
-        "errors":
-
-            errors
-
-    }
-
 
     with open(
-        REPORT_FILE,
+        VALID_OUTPUT,
         "w",
         encoding="utf-8"
     ) as file:
 
-        json.dump(
 
-            report,
+        json.dump({
 
-            file,
+            "generated":
 
-            indent=2
+                datetime.now(
+                    timezone.utc
+                ).isoformat(),
 
+
+            "count":
+
+                len(valid),
+
+
+            "fixtures":
+
+                valid
+
+
+        },
+        file,
+        indent=2
         )
 
 
 
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
+    # Save report
+
+    with open(
+        REPORT_OUTPUT,
+        "w",
+        encoding="utf-8"
+    ) as file:
 
 
-def main():
+        json.dump({
+
+            "validation_status":
+
+                status,
 
 
-    data = load_slips()
+            "original_matches":
+
+                original_count,
 
 
-    if data:
+            "valid_matches":
 
-        validate_structure(
-            data
-        )
+                len(valid),
 
 
-        slips = data.get(
-            "slips",
-            []
-        )
+            "rejected_matches":
+
+                rejected,
 
 
-        global_fixtures = []
+            "duplicates_removed":
+
+                duplicate_removed
 
 
-        for index, slip in enumerate(
-            slips,
-            start=1
-        ):
-
-
-            validate_slip(
-
-                slip,
-
-                index,
-
-                global_fixtures
-
-            )
-
-
-            validate_risk(
-
-                slip,
-
-                index
-
-            )
-
-
-
-        validate_global_duplicates(
-
-            global_fixtures
-
+        },
+        file,
+        indent=2
         )
 
 
 
-    save_report()
+    print(
+        "Match validation complete"
+    )
+
+    print(
+        f"Valid fixtures: {len(valid)}"
+    )
 
 
 
-    if errors:
-
-        print(
-            "❌ Slip validation failed"
-        )
-
-
-        for error in errors:
-
-            print(
-                " -",
-                error
-            )
-
-
-        sys.exit(1)
+    return status
 
 
 
-    else:
+if __name__=="__main__":
 
-        print(
-            "✅ All slips validated successfully"
-        )
-
-
-        sys.exit(0)
-
-
-
-if __name__ == "__main__":
-
-    main()
+    validate_matches()

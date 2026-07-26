@@ -1,90 +1,57 @@
 {
-  "matches": 3,
+  "generated": "2026-07-26T10:00:00Z",
   "results": [
     {
-      "fixture_id": 1001,
-
-      "teams": {
-        "home": "Manchester United",
-        "away": "Chelsea"
-      },
-
-      "markets": {
-        "1X": 0.84,
-        "X2": 0.63,
-        "12": 0.78
-      },
-
+      "fixture_id": 101,
+      "teams": "Manchester City vs Arsenal",
       "recommended": "1X",
-
-      "confidence": 84.0,
-
-      "odds": 1.25,
-
-      "risk": "ULTRA_SAFE",
-
-      "sources": {
-        "ml_weight": 0.4,
-        "odds_weight": 0.6
-      }
+      "confidence": 87.5,
+      "odds": 1.14,
+      "risk": "ULTRA_SAFE"
     },
-
-
     {
-      "fixture_id": 1002,
-
-      "teams": {
-        "home": "Real Madrid",
-        "away": "Barcelona"
-      },
-
-      "markets": {
-        "1X": 0.72,
-        "X2": 0.69,
-        "12": 0.81
-      },
-
+      "fixture_id": 102,
+      "teams": "Barcelona vs Sevilla",
       "recommended": "12",
-
-      "confidence": 81.0,
-
-      "odds": 1.35,
-
-      "risk": "SAFE",
-
-      "sources": {
-        "ml_weight": 0.4,
-        "odds_weight": 0.6
-      }
+      "confidence": 79.2,
+      "odds": 1.26,
+      "risk": "SAFE"
     },
-
-
     {
-      "fixture_id": 1003,
-
-      "teams": {
-        "home": "Inter Milan",
-        "away": "AC Milan"
-      },
-
-      "markets": {
-        "1X": 0.79,
-        "X2": 0.74,
-        "12": 0.76
-      },
-
+      "fixture_id": 103,
+      "teams": "Inter Milan vs Roma",
+      "recommended": "X2",
+      "confidence": 70.4,
+      "odds": 1.42,
+      "risk": "MEDIUM"
+    }
+  ]
+}{
+  "generated": "2026-07-26T10:00:00Z",
+  "results": [
+    {
+      "fixture_id": 101,
+      "teams": "Manchester City vs Arsenal",
       "recommended": "1X",
-
-      "confidence": 79.0,
-
-      "odds": 1.30,
-
-      "risk": "SAFE",
-
-      "sources": {
-        "ml_weight": 0.4,
-        "odds_weight": 0.6
-      }
+      "confidence": 87.5,
+      "odds": 1.14,
+      "risk": "ULTRA_SAFE"
+    },
+    {
+      "fixture_id": 102,
+      "teams": "Barcelona vs Sevilla",
+      "recommended": "12",
+      "confidence": 79.2,
+      "odds": 1.26,
+      "risk": "SAFE"
+    },
+    {
+      "fixture_id": 103,
+      "teams": "Inter Milan vs Roma",
+      "recommended": "X2",
+      "confidence": 70.4,
+      "odds": 1.42,
+      "risk": "MEDIUM"
     }
   ]
 }

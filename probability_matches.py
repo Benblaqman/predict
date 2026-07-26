@@ -3,20 +3,18 @@
 probability_matches.py
 
 Combines:
-- Machine learning predictions
-- Bookmaker odds probabilities
+- ML probabilities
+- bookmaker odds probabilities
 
-Creates final Double Chance probabilities.
+Creates final betting probabilities.
 
 Input:
     engine/data/predictions.json
-    engine/data/odds.json (optional)
+    engine/data/odds.json
 
 Output:
     engine/data/probability_results.json
-
 """
-
 
 from __future__ import annotations
 
@@ -43,70 +41,59 @@ OUTPUT_FILE = Path(
 
 
 ML_WEIGHT = float(
-    os.getenv(
-        "ML_WEIGHT",
-        "0.40"
-    )
+    os.getenv("ML_WEIGHT", "0.40")
 )
-
 
 ODDS_WEIGHT = float(
-    os.getenv(
-        "ODDS_WEIGHT",
-        "0.60"
-    )
+    os.getenv("ODDS_WEIGHT", "0.60")
 )
 
 
+# --------------------------------------------------
+# Market Rules
+# --------------------------------------------------
+
+MARKET_PRIORITY = {
+
+    "1X": 3,
+    "X2": 3,
+    "12": 2
+
+}
+
+
+SAFE_MARKETS = {
+    "1X",
+    "X2"
+}
+
+
 
 # --------------------------------------------------
-# Load files
+# Helpers
 # --------------------------------------------------
 
 
-def load_json(file):
+def load_json(path):
 
-    if not file.exists():
+    if not path.exists():
+
         raise FileNotFoundError(
-            f"{file} missing"
+            path
         )
 
+
     with open(
-        file,
+        path,
         "r",
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
-        return json.load(f)
-
-
-
-# --------------------------------------------------
-# Odds conversion
-# --------------------------------------------------
+        return json.load(file)
 
 
-def odds_to_probability(
-    odds
-):
 
-    """
-    Convert decimal odds into
-    implied probability.
-
-    Example:
-
-    1.50 odds
-
-    =
-
-    66.7%
-    """
-
-
-    if not odds:
-        return None
-
+def odds_probability(odds):
 
     try:
 
@@ -121,80 +108,119 @@ def odds_to_probability(
 
 
 
-def get_market_odds(
-    odds_data,
-    fixture_id
+def classify_risk(
+    confidence,
+    market
 ):
 
-    """
-    Extract DC odds.
-
-    Expected format:
-
-    {
-      fixture_id:
-      {
-        "1X":1.20,
-        "X2":2.00,
-        "12":1.30
-      }
-    }
-
-    """
-
-    if not odds_data:
-        return None
+    if (
+        confidence >= 85
+        and market in SAFE_MARKETS
+    ):
+        return "ULTRA_SAFE"
 
 
-    return odds_data.get(
-        str(fixture_id)
-    )
+    if confidence >= 80:
+        return "SAFE"
+
+
+    if confidence >= 72:
+        return "MEDIUM"
+
+
+    return "HIGH"
 
 
 
-# --------------------------------------------------
-# Probability fusion
-# --------------------------------------------------
-
-
-def combine_probability(
-    ml_probability,
-    odds_probability
+def combine(
+    ml,
+    odds
 ):
 
-
-    if odds_probability is None:
+    if odds is None:
 
         return round(
-            ml_probability,
+            ml,
             3
         )
 
 
-    combined = (
-
-        ml_probability
-        *
-        ML_WEIGHT
-
-        +
-
-        odds_probability
-        *
-        ODDS_WEIGHT
-
-    )
-
-
     return round(
-        combined,
+        (
+            ml * ML_WEIGHT
+            +
+            odds * ODDS_WEIGHT
+        ),
         3
     )
 
 
 
 # --------------------------------------------------
-# Process matches
+# Market Selection
+# --------------------------------------------------
+
+
+def choose_market(markets):
+
+
+    ranked = sorted(
+
+        markets.items(),
+
+        key=lambda item:
+        (
+            item[1],
+            MARKET_PRIORITY.get(
+                item[0],
+                0
+            )
+        ),
+
+        reverse=True
+    )
+
+
+    best_market, probability = ranked[0]
+
+
+    # Avoid risky 12 market
+    if best_market == "12":
+
+        safe_candidates = [
+
+            x for x in ranked
+
+            if x[0] in SAFE_MARKETS
+
+        ]
+
+
+        if safe_candidates:
+
+            safe_market, safe_probability = (
+                safe_candidates[0]
+            )
+
+
+            if (
+                probability
+                -
+                safe_probability
+                <
+                0.06
+            ):
+
+                best_market = safe_market
+                probability = safe_probability
+
+
+    return best_market, probability
+
+
+
+# --------------------------------------------------
+# Process
 # --------------------------------------------------
 
 
@@ -203,65 +229,76 @@ def process_match(
     odds_data
 ):
 
-
     fixture_id = str(
         prediction["fixture_id"]
     )
 
 
-    odds = get_market_odds(
-        odds_data,
-        fixture_id
+    odds_markets = odds_data.get(
+        fixture_id,
+        {}
     )
 
 
-    final = {}
+    final_markets = {}
 
 
-    for market, ml_value in (
+    for market, ml_probability in (
         prediction["probabilities"]
         .items()
     ):
 
 
-        odds_probability = None
-
-
-        if odds:
-
-            decimal_odds = odds.get(
-                market
-            )
-
-            odds_probability = (
-                odds_to_probability(
-                    decimal_odds
-                )
-            )
-
-
-        final[market] = combine_probability(
-            ml_value,
-            odds_probability
+        market_odds = odds_markets.get(
+            market
         )
 
 
-    best_pick = max(
-        final,
-        key=final.get
+        final_markets[market] = combine(
+
+            ml_probability,
+
+            odds_probability(
+                market_odds
+            )
+
+        )
+
+
+
+    selected_market, confidence = choose_market(
+        final_markets
     )
 
 
-    confidence = round(
-        final[best_pick]
-        *
-        100,
+    confidence_percent = round(
+        confidence * 100,
         2
     )
 
 
-    return {
+    odds = None
 
+
+    if odds_markets.get(
+        selected_market
+    ):
+
+        odds = float(
+            odds_markets[selected_market]
+        )
+
+
+    else:
+
+        odds = round(
+            1 / confidence,
+            2
+        )
+
+
+
+    return {
 
         "fixture_id":
             prediction["fixture_id"],
@@ -272,46 +309,84 @@ def process_match(
 
 
         "markets":
-            final,
+            final_markets,
 
 
         "recommended":
-            best_pick,
+            selected_market,
 
 
         "confidence":
-            confidence,
+            confidence_percent,
 
 
-        "sources":
-        {
+        "odds":
+            odds,
 
-            "ml_weight":
-                ML_WEIGHT,
 
-            "odds_weight":
-                ODDS_WEIGHT
-
-        }
+        "risk":
+            classify_risk(
+                confidence_percent,
+                selected_market
+            )
 
     }
 
 
 
 # --------------------------------------------------
-# Save
+# Main
 # --------------------------------------------------
 
 
-def save_results(
-    results
-):
+def main():
+
+    predictions = load_json(
+        PREDICTIONS_FILE
+    )
+
+
+    odds = {}
+
+
+    if ODDS_FILE.exists():
+
+        odds = load_json(
+            ODDS_FILE
+        )
+
+
+    results = []
+
+
+    for match in predictions["predictions"]:
+
+        results.append(
+
+            process_match(
+                match,
+                odds
+            )
+
+        )
+
+
+    results.sort(
+
+        key=lambda x:
+        x["confidence"],
+
+        reverse=True
+
+    )
+
 
     with open(
         OUTPUT_FILE,
         "w",
         encoding="utf-8"
-    ) as f:
+    ) as file:
+
 
         json.dump(
 
@@ -324,76 +399,15 @@ def save_results(
 
             },
 
-            f,
+            file,
 
             indent=2
 
         )
 
 
-
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
-
-
-def main():
-
-
-    predictions = load_json(
-        PREDICTIONS_FILE
-    )
-
-
-    odds_data = {}
-
-
-    if ODDS_FILE.exists():
-
-        odds_data = load_json(
-            ODDS_FILE
-        )
-
-
-
-    results = []
-
-
-    for prediction in (
-        predictions["predictions"]
-    ):
-
-        result = process_match(
-            prediction,
-            odds_data
-        )
-
-        results.append(
-            result
-        )
-
-
-
-    # Highest confidence first
-
-    results.sort(
-        key=lambda x:
-        x["confidence"],
-        reverse=True
-    )
-
-
-    save_results(
-        results
-    )
-
-
     print(
-        f"Processed {len(results)} matches"
-    )
-
-    print(
-        f"Saved {OUTPUT_FILE}"
+        f"Created {len(results)} probabilities"
     )
 
 

@@ -3,13 +3,13 @@
 """
 predict_matches.py
 
-Creates match probabilities from statistics.
+Creates match probabilities from team statistics.
 
 Input:
-data/statistics.json
+    data/statistics.json
 
 Output:
-data/predictions.json
+    data/predictions.json
 
 
 Produces:
@@ -17,7 +17,9 @@ Produces:
 - Home win probability
 - Draw probability
 - Away win probability
-- Double chance probabilities
+- Double chance markets
+- Recommended market
+- Confidence score
 
 """
 
@@ -49,10 +51,50 @@ def safe(value):
     if value is None:
         return 0
 
-    if isinstance(value,(int,float)):
+    if isinstance(value, (int, float)):
         return value
 
     return 0
+
+
+
+def normalize_probabilities(
+    home,
+    away
+):
+
+    total = home + away
+
+
+    if total > 0.90:
+
+        factor = 0.90 / total
+
+        home *= factor
+
+        away *= factor
+
+
+
+    draw = 1 - home - away
+
+
+
+    if draw < 0:
+
+        draw = 0
+
+
+
+    return (
+
+        round(home, 3),
+
+        round(draw, 3),
+
+        round(away, 3)
+
+    )
 
 
 
@@ -70,66 +112,69 @@ def calculate_prediction(match):
 
 
 
-    # Attack strength
-
     home_attack = safe(
-        home["goals_scored_avg"]
+        home.get(
+            "goals_scored_avg"
+        )
     )
 
 
     away_attack = safe(
-        away["goals_scored_avg"]
+        away.get(
+            "goals_scored_avg"
+        )
     )
 
 
 
-    # Defensive strength
-
     home_defence = safe(
-        home["goals_conceded_avg"]
+        home.get(
+            "goals_conceded_avg"
+        )
     )
 
 
     away_defence = safe(
-        away["goals_conceded_avg"]
+        away.get(
+            "goals_conceded_avg"
+        )
     )
 
 
 
-    # Elo difference
-
     elo_difference = (
 
         safe(
-            home["elo_rating"]
+            home.get(
+                "elo_rating"
+            )
         )
 
         -
 
         safe(
-            away["elo_rating"]
+            away.get(
+                "elo_rating"
+            )
         )
 
     )
 
 
 
-    # Home advantage
-
-    home_advantage = safe(
-        home["home_strength"]
+    home_strength = safe(
+        home.get(
+            "home_strength"
+        )
     )
 
 
     away_strength = safe(
-        away["away_strength"]
+        away.get(
+            "away_strength"
+        )
     )
 
-
-
-    # -------------------------------
-    # Weighted model
-    # -------------------------------
 
 
     home_score = (
@@ -146,7 +191,7 @@ def calculate_prediction(match):
 
         +
 
-        home_advantage
+        home_strength
 
     )
 
@@ -179,48 +224,61 @@ def calculate_prediction(match):
 
 
     home_probability = (
+
         0.50
+
         +
+
         difference / 100
+
     )
 
 
 
-    # limits
-
     home_probability = max(
+
         0.15,
+
         min(
             home_probability,
             0.80
         )
+
     )
 
 
 
     away_probability = (
-        1
+
+        0.50
+
         -
-        home_probability
-        -
-        0.25
+
+        difference / 100
+
     )
 
 
 
-    away_probability=max(
+    away_probability = max(
+
         0.10,
-        away_probability
+
+        min(
+            away_probability,
+            0.70
+        )
+
     )
 
 
 
-    draw_probability = (
-        1
-        -
-        home_probability
-        -
+    home_probability, draw_probability, away_probability = normalize_probabilities(
+
+        home_probability,
+
         away_probability
+
     )
 
 
@@ -229,24 +287,18 @@ def calculate_prediction(match):
 
 
         "home_win":
-            round(
-                home_probability,
-                3
-            ),
+
+            home_probability,
 
 
         "draw":
-            round(
-                draw_probability,
-                3
-            ),
+
+            draw_probability,
 
 
         "away_win":
-            round(
-                away_probability,
-                3
-            )
+
+            away_probability
 
     }
 
@@ -257,7 +309,7 @@ def calculate_prediction(match):
 # --------------------------------------------------
 
 
-def double_chance(prob):
+def create_double_chance(prob):
 
 
     return {
@@ -314,11 +366,19 @@ def double_chance(prob):
 
 
 # --------------------------------------------------
-# Main Prediction
+# Prediction Runner
 # --------------------------------------------------
 
 
 def predict_matches():
+
+
+    if not INPUT_FILE.exists():
+
+        raise FileNotFoundError(
+            "statistics.json missing"
+        )
+
 
 
     with open(
@@ -326,27 +386,50 @@ def predict_matches():
         encoding="utf-8"
     ) as file:
 
-
-        data=json.load(file)
-
-
-
-    predictions=[]
+        data = json.load(file)
 
 
 
-    for match in data["statistics"]:
+    predictions = []
 
 
 
-        probability = calculate_prediction(
+    for match in data.get(
+        "statistics",
+        []
+    ):
+
+
+
+        probabilities = calculate_prediction(
             match
         )
 
 
 
-        dc = double_chance(
-            probability
+        double_chance = create_double_chance(
+            probabilities
+        )
+
+
+
+        recommended = max(
+
+            double_chance,
+
+            key=double_chance.get
+
+        )
+
+
+
+        confidence = round(
+
+            double_chance[recommended]
+            * 100,
+
+            2
+
         )
 
 
@@ -356,65 +439,112 @@ def predict_matches():
 
             "fixture_id":
 
-                match["fixture_id"],
+                match.get(
+                    "fixture_id"
+                ),
 
 
 
             "teams":
 
-                match["teams"],
+                match.get(
+                    "teams"
+                ),
+
+
+
+            "league":
+
+                match.get(
+                    "league"
+                ),
+
+
+
+            "kickoff":
+
+                match.get(
+                    "kickoff"
+                ),
 
 
 
             "probabilities":
 
-                probability,
+                probabilities,
 
 
 
             "double_chance":
 
-                dc
+                double_chance,
+
+
+
+            "recommended_market":
+
+                recommended,
+
+
+
+            "confidence":
+
+                confidence
 
         })
 
 
 
     OUTPUT_FILE.parent.mkdir(
+
+        parents=True,
+
         exist_ok=True
+
     )
 
 
 
     with open(
+
         OUTPUT_FILE,
+
         "w",
+
         encoding="utf-8"
+
     ) as file:
 
 
-        json.dump({
 
-            "generated":
+        json.dump(
 
-                datetime.now(
-                    timezone.utc
-                ).isoformat(),
+            {
 
+                "generated":
 
-            "matches":
-
-                len(predictions),
+                    datetime.now(
+                        timezone.utc
+                    ).isoformat(),
 
 
-            "predictions":
+                "matches":
 
-                predictions
+                    len(predictions),
 
 
-        },
-        file,
-        indent=2
+                "predictions":
+
+                    predictions
+
+            },
+
+            file,
+
+            indent=2,
+
+            ensure_ascii=False
+
         )
 
 
@@ -425,6 +555,6 @@ def predict_matches():
 
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
 
     predict_matches()

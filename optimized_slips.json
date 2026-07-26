@@ -1,31 +1,312 @@
-{
- "generated":"2026-07-26T12:00:00",
+#!/usr/bin/env python3
+"""
+Optimizer.py
 
- "slips":[
+Creates 10 betting slips from
+probability_results.json
 
-  {
-   "id":1,
-   "type":"ULTRA_SAFE",
+Input:
+engine/data/probability_results.json
 
-   "matches":[
+Output:
+engine/data/optimized_slips.json
+"""
 
-    {
-     "fixture_id":123,
-     "teams":"Arsenal vs Chelsea",
-     "market":"1X",
-     "confidence":88,
-     "odds":1.25
+
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+from datetime import datetime, timezone
+
+
+INPUT_FILE = Path(
+    "engine/data/probability_results.json"
+)
+
+
+OUTPUT_FILE = Path(
+    "engine/data/optimized_slips.json"
+)
+
+
+SLIPS = 10
+
+MATCHES_PER_SLIP = 5
+
+
+
+# --------------------------------------------------
+# Load
+# --------------------------------------------------
+
+
+def load_matches():
+
+    with open(
+        INPUT_FILE,
+        "r",
+        encoding="utf-8"
+    ) as file:
+
+        return json.load(file)["results"]
+
+
+
+# --------------------------------------------------
+# Filters
+# --------------------------------------------------
+
+
+def pools(matches):
+
+
+    ultra = [
+        m for m in matches
+        if m["risk"] == "ULTRA_SAFE"
+    ]
+
+
+    safe = [
+        m for m in matches
+        if m["risk"] == "SAFE"
+    ]
+
+
+    medium = [
+        m for m in matches
+        if m["risk"] == "MEDIUM"
+    ]
+
+
+    high = [
+        m for m in matches
+        if m["risk"] == "HIGH"
+    ]
+
+
+    return {
+
+        "ULTRA_SAFE": ultra,
+        "SAFE": safe,
+        "MEDIUM": medium,
+        "HIGH": high
+
     }
 
-   ],
 
-   "metrics":{
-      "average_confidence":86.5,
-      "combined_odds":3.42,
-      "risk":"LOW"
-   }
 
-  }
+# --------------------------------------------------
+# Slip builder
+# --------------------------------------------------
 
- ]
-}
+
+def create_slip(
+    available,
+    risk
+):
+
+
+    if len(available) < MATCHES_PER_SLIP:
+
+        return None
+
+
+    selected = random.sample(
+
+        available,
+
+        MATCHES_PER_SLIP
+
+    )
+
+
+    combined_odds = 1
+
+
+    confidence = 0
+
+
+    for match in selected:
+
+        combined_odds *= match["odds"]
+
+        confidence += match["confidence"]
+
+
+
+    confidence /= MATCHES_PER_SLIP
+
+
+
+    return {
+
+        "risk":
+
+            risk,
+
+
+        "matches":[
+
+            {
+
+                "fixture_id":
+                    m["fixture_id"],
+
+                "teams":
+                    m["teams"],
+
+                "market":
+                    m["recommended"],
+
+                "confidence":
+                    m["confidence"],
+
+                "odds":
+                    m["odds"]
+
+            }
+
+            for m in selected
+
+        ],
+
+
+        "summary":{
+
+            "average_confidence":
+                round(
+                    confidence,
+                    2
+                ),
+
+            "combined_odds":
+                round(
+                    combined_odds,
+                    2
+                )
+
+        }
+
+    }
+
+
+
+# --------------------------------------------------
+# Optimize
+# --------------------------------------------------
+
+
+def optimize(matches):
+
+
+    grouped = pools(matches)
+
+
+    plan = [
+
+        "ULTRA_SAFE",
+
+        "ULTRA_SAFE",
+
+        "SAFE",
+
+        "SAFE",
+
+        "SAFE",
+
+        "MEDIUM",
+
+        "MEDIUM",
+
+        "MEDIUM",
+
+        "HIGH",
+
+        "HIGH"
+
+    ]
+
+
+    slips=[]
+
+
+    for risk in plan:
+
+
+        slip = create_slip(
+
+            grouped[risk],
+
+            risk
+
+        )
+
+
+        if slip:
+
+            slips.append(
+                slip
+            )
+
+
+    return slips
+
+
+
+# --------------------------------------------------
+# Save
+# --------------------------------------------------
+
+
+def main():
+
+    matches = load_matches()
+
+
+    slips = optimize(
+        matches
+    )
+
+
+    payload = {
+
+        "generated":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+
+
+        "total_slips":
+            len(slips),
+
+
+        "slips":
+            slips
+
+    }
+
+
+    with open(
+        OUTPUT_FILE,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            payload,
+            file,
+            indent=2
+        )
+
+
+    print(
+        f"Generated {len(slips)} slips"
+    )
+
+
+
+if __name__ == "__main__":
+
+    main()

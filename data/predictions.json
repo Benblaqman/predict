@@ -1,0 +1,61 @@
+{
+  "matches": 3,
+  "predictions": [
+    {
+      "fixture_id": 1001,
+
+      "teams": {
+        "home": "Manchester United",
+        "away": "Chelsea"
+      },
+
+      "probabilities": {
+        "1X": 0.84,
+        "X2": 0.63,
+        "12": 0.78
+      },
+
+      "best_pick": "1X",
+
+      "confidence": 84.0
+    },
+
+    {
+      "fixture_id": 1002,
+
+      "teams": {
+        "home": "Real Madrid",
+        "away": "Barcelona"
+      },
+
+      "probabilities": {
+        "1X": 0.72,
+        "X2": 0.69,
+        "12": 0.81
+      },
+
+      "best_pick": "12",
+
+      "confidence": 81.0
+    },
+
+    {
+      "fixture_id": 1003,
+
+      "teams": {
+        "home": "Inter Milan",
+        "away": "AC Milan"
+      },
+
+      "probabilities": {
+        "1X": 0.79,
+        "X2": 0.74,
+        "12": 0.76
+      },
+
+      "best_pick": "1X",
+
+      "confidence": 79.0
+    }
+  ]
+}

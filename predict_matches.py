@@ -1,267 +1,201 @@
 #!/usr/bin/env python3
+
 """
 predict_matches.py
 
-Creates Double Chance probabilities from match statistics.
+Creates match probabilities from statistics.
 
 Input:
-    engine/data/statistics.json
+data/statistics.json
 
 Output:
-    engine/data/predictions.json
+data/predictions.json
 
 
-Markets:
+Produces:
 
-1X  = Home win or Draw
-X2  = Away win or Draw
-12  = Either team wins
+- Home win probability
+- Draw probability
+- Away win probability
+- Double chance probabilities
 
-
-The model can later be replaced with a trained ML model.
 """
 
-from __future__ import annotations
 
-import json
-import pickle
 from pathlib import Path
+import json
+from datetime import datetime, timezone
 
-import numpy as np
 
 
-# --------------------------------------------------
-# Paths
-# --------------------------------------------------
-
-STATISTICS_FILE = Path(
-    "engine/data/statistics.json"
+INPUT_FILE = Path(
+    "data/statistics.json"
 )
+
 
 OUTPUT_FILE = Path(
-    "engine/data/predictions.json"
-)
-
-MODEL_FILE = Path(
-    "engine/models/dc_model.pkl"
+    "data/predictions.json"
 )
 
 
-# --------------------------------------------------
-# Load data
-# --------------------------------------------------
-
-
-def load_statistics():
-
-    if not STATISTICS_FILE.exists():
-        raise FileNotFoundError(
-            "statistics.json missing"
-        )
-
-
-    with open(
-        STATISTICS_FILE,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
-        return json.load(file)
-
-
 
 # --------------------------------------------------
-# ML Model
+# Helpers
 # --------------------------------------------------
 
 
-def load_model():
-
-    """
-    Loads trained ML model.
-
-    Example:
-    RandomForestClassifier
-    XGBoost
-    LogisticRegression
-
-    """
-
-    if MODEL_FILE.exists():
-
-        with open(
-            MODEL_FILE,
-            "rb"
-        ) as file:
-
-            return pickle.load(file)
-
-
-    return None
-
-
-
-# --------------------------------------------------
-# Feature Engineering
-# --------------------------------------------------
-
-
-def safe_number(value):
+def safe(value):
 
     if value is None:
         return 0
 
-    if isinstance(value, (int, float)):
+    if isinstance(value,(int,float)):
         return value
 
     return 0
 
 
 
-def create_features(match):
-
-
-    home = match["home_stats"]
-
-    away = match["away_stats"]
-
-
-    features = [
-
-        # attack
-        safe_number(
-            home["goals_scored_avg"]
-        ),
-
-        safe_number(
-            away["goals_scored_avg"]
-        ),
-
-
-        # defence
-        safe_number(
-            home["goals_conceded_avg"]
-        ),
-
-        safe_number(
-            away["goals_conceded_avg"]
-        ),
-
-
-        # strength
-        safe_number(
-            home["elo_rating"]
-        ),
-
-        safe_number(
-            away["elo_rating"]
-        ),
-
-
-        # home/away advantage
-        safe_number(
-            home["home_strength"]
-        ),
-
-        safe_number(
-            away["away_strength"]
-        ),
-
-
-        # league position
-        safe_number(
-            home["league_position"]
-        ),
-
-        safe_number(
-            away["league_position"]
-        )
-
-    ]
-
-
-    return np.array(
-        features
-    ).reshape(
-        1, -1
-    )
-
-
-
 # --------------------------------------------------
-# Baseline Prediction
+# Prediction Model
 # --------------------------------------------------
 
 
-def baseline_prediction(match):
-
-    """
-    Temporary model.
-
-    Used until enough historical
-    results exist for training.
-    """
+def calculate_prediction(match):
 
 
-    home = match["home_stats"]
+    home = match["home"]
 
-    away = match["away_stats"]
+    away = match["away"]
 
 
-    home_power = (
 
-        safe_number(
+    # Attack strength
+
+    home_attack = safe(
+        home["goals_scored_avg"]
+    )
+
+
+    away_attack = safe(
+        away["goals_scored_avg"]
+    )
+
+
+
+    # Defensive strength
+
+    home_defence = safe(
+        home["goals_conceded_avg"]
+    )
+
+
+    away_defence = safe(
+        away["goals_conceded_avg"]
+    )
+
+
+
+    # Elo difference
+
+    elo_difference = (
+
+        safe(
             home["elo_rating"]
         )
 
-        +
+        -
 
-        safe_number(
-            home["goals_scored_avg"]
-        )
-        * 100
-
-    )
-
-
-    away_power = (
-
-        safe_number(
+        safe(
             away["elo_rating"]
         )
 
+    )
+
+
+
+    # Home advantage
+
+    home_advantage = safe(
+        home["home_strength"]
+    )
+
+
+    away_strength = safe(
+        away["away_strength"]
+    )
+
+
+
+    # -------------------------------
+    # Weighted model
+    # -------------------------------
+
+
+    home_score = (
+
+        home_attack * 35
+
+        -
+
+        home_defence * 15
+
         +
 
-        safe_number(
-            away["goals_scored_avg"]
-        )
-        * 100
+        elo_difference / 20
+
+        +
+
+        home_advantage
 
     )
+
+
+
+    away_score = (
+
+        away_attack * 35
+
+        -
+
+        away_defence * 15
+
+        -
+
+        elo_difference / 20
+
+        +
+
+        away_strength
+
+    )
+
 
 
     difference = (
-        home_power - away_power
+        home_score - away_score
     )
+
 
 
     home_probability = (
         0.50
         +
-        difference / 3000
+        difference / 100
     )
 
+
+
+    # limits
 
     home_probability = max(
         0.15,
         min(
             home_probability,
-            0.85
+            0.80
         )
     )
 
-
-    draw_probability = 0.25
 
 
     away_probability = (
@@ -269,11 +203,30 @@ def baseline_prediction(match):
         -
         home_probability
         -
-        draw_probability
+        0.25
     )
 
 
+
+    away_probability=max(
+        0.10,
+        away_probability
+    )
+
+
+
+    draw_probability = (
+        1
+        -
+        home_probability
+        -
+        away_probability
+    )
+
+
+
     return {
+
 
         "home_win":
             round(
@@ -281,34 +234,30 @@ def baseline_prediction(match):
                 3
             ),
 
+
         "draw":
             round(
                 draw_probability,
                 3
             ),
 
+
         "away_win":
             round(
                 away_probability,
                 3
             )
+
     }
 
 
 
 # --------------------------------------------------
-# Convert probabilities
+# Double Chance
 # --------------------------------------------------
 
 
-def convert_double_chance(result):
-
-
-    home = result["home_win"]
-
-    draw = result["draw"]
-
-    away = result["away_win"]
+def double_chance(prob):
 
 
     return {
@@ -317,24 +266,47 @@ def convert_double_chance(result):
         "1X":
 
             round(
-                home + draw,
+
+                prob["home_win"]
+
+                +
+
+                prob["draw"],
+
                 3
+
             ),
+
 
 
         "X2":
 
             round(
-                away + draw,
+
+                prob["away_win"]
+
+                +
+
+                prob["draw"],
+
                 3
+
             ),
+
 
 
         "12":
 
             round(
-                home + away,
+
+                prob["home_win"]
+
+                +
+
+                prob["away_win"],
+
                 3
+
             )
 
     }
@@ -342,118 +314,77 @@ def convert_double_chance(result):
 
 
 # --------------------------------------------------
-# Prediction
+# Main Prediction
 # --------------------------------------------------
 
 
-def predict_match(
-    match,
-    model
-):
+def predict_matches():
 
 
-    if model:
+    with open(
+        INPUT_FILE,
+        encoding="utf-8"
+    ) as file:
 
 
-        features = create_features(
+        data=json.load(file)
+
+
+
+    predictions=[]
+
+
+
+    for match in data["statistics"]:
+
+
+
+        probability = calculate_prediction(
             match
         )
 
 
-        probabilities = (
-            model
-            .predict_proba(
-                features
-            )[0]
+
+        dc = double_chance(
+            probability
         )
 
 
-        result = {
 
-            "home_win":
-                float(
-                    probabilities[0]
-                ),
-
-            "draw":
-                float(
-                    probabilities[1]
-                ),
-
-            "away_win":
-                float(
-                    probabilities[2]
-                )
-        }
+        predictions.append({
 
 
-    else:
+            "fixture_id":
 
-        result = (
-            baseline_prediction(
-                match
-            )
-        )
+                match["fixture_id"],
 
 
-    dc = convert_double_chance(
-        result
+
+            "teams":
+
+                match["teams"],
+
+
+
+            "probabilities":
+
+                probability,
+
+
+
+            "double_chance":
+
+                dc
+
+        })
+
+
+
+    OUTPUT_FILE.parent.mkdir(
+        exist_ok=True
     )
 
 
-    best_market = max(
-        dc,
-        key=dc.get
-    )
-
-
-    return {
-
-
-        "fixture_id":
-            match["fixture_id"],
-
-
-        "teams":
-        {
-
-            "home":
-                match["match"]["home"],
-
-            "away":
-                match["match"]["away"]
-
-        },
-
-
-        "probabilities":
-            dc,
-
-
-        "best_pick":
-            best_market,
-
-
-        "confidence":
-            round(
-                dc[best_market]
-                *
-                100,
-                2
-            )
-
-    }
-
-
-
-# --------------------------------------------------
-# Save
-# --------------------------------------------------
-
-
-def save_predictions(
-    predictions
-):
 
     with open(
         OUTPUT_FILE,
@@ -461,59 +392,31 @@ def save_predictions(
         encoding="utf-8"
     ) as file:
 
-        json.dump(
 
-            {
-                "matches":
-                    len(predictions),
+        json.dump({
 
-                "predictions":
-                    predictions
+            "generated":
 
-            },
+                datetime.now(
+                    timezone.utc
+                ).isoformat(),
 
-            file,
 
-            indent=2
+            "matches":
 
+                len(predictions),
+
+
+            "predictions":
+
+                predictions
+
+
+        },
+        file,
+        indent=2
         )
 
-
-
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
-
-
-def main():
-
-
-    data = load_statistics()
-
-
-    model = load_model()
-
-
-    predictions = []
-
-
-    for match in data["statistics"]:
-
-
-        prediction = predict_match(
-            match,
-            model
-        )
-
-
-        predictions.append(
-            prediction
-        )
-
-
-    save_predictions(
-        predictions
-    )
 
 
     print(
@@ -521,6 +424,7 @@ def main():
     )
 
 
-if __name__ == "__main__":
 
-    main()
+if __name__=="__main__":
+
+    predict_matches()

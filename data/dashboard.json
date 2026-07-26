@@ -1,0 +1,140 @@
+{
+  "generated": "2026-07-26T09:00:00+00:00",
+
+  "engine": {
+    "name": "Football Prediction Engine",
+    "version": "1.0",
+    "status": "ACTIVE"
+  },
+
+  "summary": {
+    "total_slips": 3,
+    "average_confidence": 81.3,
+    "validation_status": "PASSED"
+  },
+
+  "validation": {
+    "valid_slips": 3,
+    "invalid_slips": 0
+  },
+
+  "slips": [
+
+    {
+      "slip_id": 1,
+
+      "risk": "ULTRA_SAFE",
+
+      "combined_odds": 1.63,
+
+      "confidence": 81.5,
+
+      "selections": [
+
+        {
+          "fixture_id": 1001,
+
+          "match": "Manchester United vs Chelsea",
+
+          "market": "1X",
+
+          "confidence": 84.0,
+
+          "odds": 1.25
+        },
+
+        {
+          "fixture_id": 1003,
+
+          "match": "Inter Milan vs AC Milan",
+
+          "market": "1X",
+
+          "confidence": 79.0,
+
+          "odds": 1.30
+        }
+
+      ]
+    },
+
+
+    {
+      "slip_id": 2,
+
+      "risk": "SAFE",
+
+      "combined_odds": 1.69,
+
+      "confidence": 82.5,
+
+      "selections": [
+
+        {
+          "fixture_id": 1001,
+
+          "match": "Manchester United vs Chelsea",
+
+          "market": "1X",
+
+          "confidence": 84.0,
+
+          "odds": 1.25
+        },
+
+        {
+          "fixture_id": 1002,
+
+          "match": "Real Madrid vs Barcelona",
+
+          "market": "12",
+
+          "confidence": 81.0,
+
+          "odds": 1.35
+        }
+
+      ]
+    },
+
+
+    {
+      "slip_id": 3,
+
+      "risk": "MEDIUM",
+
+      "combined_odds": 1.75,
+
+      "confidence": 80.0,
+
+      "selections": [
+
+        {
+          "fixture_id": 1002,
+
+          "match": "Real Madrid vs Barcelona",
+
+          "market": "12",
+
+          "confidence": 81.0,
+
+          "odds": 1.35
+        },
+
+        {
+          "fixture_id": 1003,
+
+          "match": "Inter Milan vs AC Milan",
+
+          "market": "1X",
+
+          "confidence": 79.0,
+
+          "odds": 1.30
+        }
+
+      ]
+    }
+
+  ]
+}

@@ -1,20 +1,44 @@
 #!/usr/bin/env python3
 
 """
-Collect team statistics.
+fetch_statistics.py
+
+Collect team statistics for validated fixtures.
+
+Input:
+    data/fixtures_validated.json
+
+Output:
+    data/statistics.json
+
+
+Features collected:
+
+- Goals scored average
+- Goals conceded average
+- Home strength
+- Away strength
+- League position
+- Elo rating
+- Recent form
 """
 
 
 from pathlib import Path
 import json
 import os
-import requests
 import time
+import requests
+from datetime import datetime, timezone
 
 
+
+# --------------------------------------------------
+# Paths
+# --------------------------------------------------
 
 FIXTURE_FILE = Path(
-    "data/fixtures.json"
+    "data/fixtures_validated.json"
 )
 
 
@@ -24,6 +48,10 @@ OUTPUT_FILE = Path(
 
 
 
+# --------------------------------------------------
+# API Configuration
+# --------------------------------------------------
+
 API_URL = os.getenv(
     "FOOTBALL_STATS_API",
     "https://api.example.com"
@@ -31,14 +59,14 @@ API_URL = os.getenv(
 
 
 API_KEY = os.getenv(
-    "FOOTBALL_API_KEY"
+    "FOOTBALL_API_KEY",
 )
 
 
 
 HEADERS = {
 
-    "Accept":"application/json",
+    "Accept": "application/json",
 
     "Authorization":
         f"Bearer {API_KEY}"
@@ -47,62 +75,133 @@ HEADERS = {
 
 
 
-def api_get(endpoint):
-
-    response = requests.get(
-
-        f"{API_URL}/{endpoint}",
-
-        headers=HEADERS,
-
-        timeout=30
-    )
-
-    response.raise_for_status()
-
-    return response.json()
-
+# --------------------------------------------------
+# Load Fixtures
+# --------------------------------------------------
 
 
 def load_fixtures():
 
+    if not FIXTURE_FILE.exists():
+
+        raise FileNotFoundError(
+            "fixtures_validated.json missing"
+        )
+
+
     with open(
         FIXTURE_FILE,
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
-        return json.load(f)["fixtures"]
+        data=json.load(file)
 
+
+    return data.get(
+        "fixtures",
+        []
+    )
+
+
+
+# --------------------------------------------------
+# API Wrapper
+# --------------------------------------------------
+
+
+def api_request(endpoint):
+
+    try:
+
+        response=requests.get(
+
+            f"{API_URL}/{endpoint}",
+
+            headers=HEADERS,
+
+            timeout=30
+
+        )
+
+
+        response.raise_for_status()
+
+
+        return response.json()
+
+
+    except Exception as error:
+
+
+        print(
+            "API error:",
+            error
+        )
+
+
+        return {}
+
+
+
+# --------------------------------------------------
+# Team Statistics
+# --------------------------------------------------
 
 
 def get_team_statistics(team):
 
 
-    try:
+    data = api_request(
 
-        data = api_get(
-            f"teams/{team}/statistics"
-        )
+        f"teams/{team}/statistics"
 
-
-    except Exception:
-
-        data = {}
+    )
 
 
 
     return {
 
 
-        "team":team,
+        "team":
+
+            team,
 
 
-        "form":
+
+        "form_last_5":
 
             data.get(
                 "form_last_5",
                 []
             ),
+
+
+
+        "wins_last_5":
+
+            data.get(
+                "wins_last_5",
+                0
+            ),
+
+
+
+        "draws_last_5":
+
+            data.get(
+                "draws_last_5",
+                0
+            ),
+
+
+
+        "losses_last_5":
+
+            data.get(
+                "losses_last_5",
+                0
+            ),
+
 
 
         "goals_scored_avg":
@@ -113,12 +212,14 @@ def get_team_statistics(team):
             ),
 
 
+
         "goals_conceded_avg":
 
             data.get(
                 "goals_conceded_avg",
                 0
             ),
+
 
 
         "home_strength":
@@ -129,6 +230,7 @@ def get_team_statistics(team):
             ),
 
 
+
         "away_strength":
 
             data.get(
@@ -137,12 +239,14 @@ def get_team_statistics(team):
             ),
 
 
+
         "league_position":
 
             data.get(
                 "league_position",
                 0
             ),
+
 
 
         "elo_rating":
@@ -156,31 +260,102 @@ def get_team_statistics(team):
 
 
 
-def fetch_statistics():
+# --------------------------------------------------
+# Head To Head
+# --------------------------------------------------
 
 
-    fixtures = load_fixtures()
+def get_h2h(home, away):
+
+
+    data = api_request(
+
+        f"h2h/{home}/{away}"
+
+    )
+
+
+
+    return {
+
+
+        "meetings":
+
+            data.get(
+                "meetings",
+                0
+            ),
+
+
+        "home_wins":
+
+            data.get(
+                "home_wins",
+                0
+            ),
+
+
+        "draws":
+
+            data.get(
+                "draws",
+                0
+            ),
+
+
+        "away_wins":
+
+            data.get(
+                "away_wins",
+                0
+            )
+
+    }
+
+
+
+# --------------------------------------------------
+# Build Statistics
+# --------------------------------------------------
+
+
+def build_statistics(fixtures):
 
 
     cache={}
-
 
     results=[]
 
 
 
-    for match in fixtures:
+    for index, fixture in enumerate(
+        fixtures,
+        start=1
+    ):
 
 
-        home = match["home"]
+        home = fixture["home"]
 
-        away = match["away"]
+        away = fixture["away"]
+
+
+
+        print(
+
+            f"Collecting {index}/{len(fixtures)} "
+            f"{home} vs {away}"
+
+        )
 
 
 
         if home not in cache:
 
-            cache[home] = get_team_statistics(home)
+
+            cache[home] = (
+                get_team_statistics(home)
+            )
+
 
             time.sleep(1)
 
@@ -188,7 +363,11 @@ def fetch_statistics():
 
         if away not in cache:
 
-            cache[away] = get_team_statistics(away)
+
+            cache[away] = (
+                get_team_statistics(away)
+            )
+
 
             time.sleep(1)
 
@@ -197,22 +376,65 @@ def fetch_statistics():
         results.append({
 
             "fixture_id":
-                match["id"],
+
+                fixture["id"],
+
 
 
             "teams":
+
                 f"{home} vs {away}",
 
 
+
             "home":
+
                 cache[home],
 
 
+
             "away":
-                cache[away]
+
+                cache[away],
+
+
+
+            "league":
+
+                fixture.get(
+                    "league"
+                ),
+
+
+
+            "kickoff":
+
+                fixture.get(
+                    "kickoff"
+                ),
+
+
+
+            "h2h":
+
+                get_h2h(
+                    home,
+                    away
+                )
 
         })
 
+
+    return results
+
+
+
+# --------------------------------------------------
+# Save
+# --------------------------------------------------
+
+
+def save_statistics(data):
 
 
     OUTPUT_FILE.parent.mkdir(
@@ -220,31 +442,80 @@ def fetch_statistics():
     )
 
 
+
     with open(
         OUTPUT_FILE,
         "w",
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
 
         json.dump({
 
+            "generated":
+
+                datetime.now(
+                    timezone.utc
+                ).isoformat(),
+
+
+
             "matches":
-                len(results),
+
+                len(data),
+
+
 
             "statistics":
-                results
 
-        },f,indent=2)
-
+                data
 
 
-    print(
-        "Statistics saved"
+        },
+        file,
+        indent=2
+        )
+
+
+
+# --------------------------------------------------
+# Main Function
+# --------------------------------------------------
+
+
+def fetch_statistics():
+
+
+    fixtures = load_fixtures()
+
+
+
+    if not fixtures:
+
+        raise RuntimeError(
+            "No fixtures available"
+        )
+
+
+
+    statistics = build_statistics(
+        fixtures
     )
 
 
 
-if __name__=="__main__":
+    save_statistics(
+        statistics
+    )
+
+
+
+    print(
+        f"Saved statistics for {len(statistics)} matches"
+    )
+
+
+
+if __name__ == "__main__":
 
     fetch_statistics()

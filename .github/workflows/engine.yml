@@ -1,51 +1,75 @@
-name: Run Wakalio Predictive Engine
+name: Football Prediction Engine
+
 
 on:
+
   schedule:
-    - cron: '0 3 * * *'
+
+    - cron: "0 */6 * * *"
+
+
   workflow_dispatch:
 
+
+
 jobs:
-  calculate-predictions:
+
+  run-engine:
+
+
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    timeout-minutes: 10
-      
+
+
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      
-      - name: Run prediction engine
-        id: predict
-        run: python predict.py
-        timeout-minutes: 5
-      
-      - name: Configure git
-        run: |
-          git config --global user.name "Wakalio Bot"
-          git config --global user.email "engine@wakalio.local"
-      
-      - name: Commit and push predictions
-        if: success()
-        run: |
-          if [ -f docs/predictions.json ]; then
-            git add docs/predictions.json
-            git commit -m "Update predictions - $(date +'%Y-%m-%d %H:%M:%S')" || true
-            git push origin main
-          else
-            echo "❌ predictions.json not found - engine may have failed"
-            exit 1
-          fi
-      
-      - name: Report failure
-        if: failure()
-        run: |
-          echo "❌ Prediction engine failed"
-          exit 1
+
+
+    - name: Checkout repository
+
+      uses: actions/checkout@v4
+
+
+
+    - name: Setup Python
+
+      uses: actions/setup-python@v5
+
+      with:
+
+        python-version: "3.11"
+
+
+
+    - name: Install dependencies
+
+      run: |
+
+        pip install -r requirements.txt
+
+
+
+    - name: Run prediction engine
+
+      env:
+
+        FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+
+        FOOTBALL_STATS_API: ${{ secrets.FOOTBALL_STATS_API }}
+
+        FIXTURE_API: ${{ secrets.FIXTURE_API }}
+
+      run: |
+
+        python main.py
+
+
+
+    - name: Upload dashboard data
+
+      uses: actions/upload-artifact@v4
+
+      with:
+
+        name: dashboard-data
+
+        path: data/dashboard.json

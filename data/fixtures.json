@@ -1,0 +1,27 @@
+{
+  "generated": "2026-07-26T08:00:00+00:00",
+  "count": 20,
+  "fixtures": [
+    {
+      "id": 1001,
+      "league": "Premier League",
+      "kickoff": "2026-07-26T15:00:00+00:00",
+      "home": "Manchester United",
+      "away": "Chelsea"
+    },
+    {
+      "id": 1002,
+      "league": "La Liga",
+      "kickoff": "2026-07-26T17:30:00+00:00",
+      "home": "Real Madrid",
+      "away": "Barcelona"
+    },
+    {
+      "id": 1003,
+      "league": "Serie A",
+      "kickoff": "2026-07-26T18:00:00+00:00",
+      "home": "Inter Milan",
+      "away": "AC Milan"
+    }
+  ]
+}

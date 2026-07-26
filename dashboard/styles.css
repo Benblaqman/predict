@@ -1,0 +1,153 @@
+body {
+
+    font-family:
+    Arial, sans-serif;
+
+    background:
+    #101820;
+
+    color:
+    white;
+
+    margin:
+    0;
+
+}
+
+
+
+header {
+
+    background:
+    #1f8f4d;
+
+    padding:
+    25px;
+
+    text-align:
+    center;
+
+}
+
+
+
+.cards {
+
+    display:
+    grid;
+
+    grid-template-columns:
+    repeat(4,1fr);
+
+    gap:
+    20px;
+
+    padding:
+    20px;
+
+}
+
+
+
+.card {
+
+    background:
+    #182b3a;
+
+    padding:
+    20px;
+
+    border-radius:
+    12px;
+
+    text-align:
+    center;
+
+}
+
+
+
+.card p {
+
+    font-size:
+    30px;
+
+    color:
+    #00ff88;
+
+}
+
+
+
+section {
+
+    padding:
+    20px;
+
+}
+
+
+
+.slip {
+
+    background:
+    #182b3a;
+
+    margin:
+    15px 0;
+
+    padding:
+    20px;
+
+    border-radius:
+    10px;
+
+}
+
+
+
+.ultra {
+
+    border-left:
+    5px solid #00ff88;
+
+}
+
+
+.safe {
+
+    border-left:
+    5px solid yellow;
+
+}
+
+
+.medium {
+
+    border-left:
+    5px solid orange;
+
+}
+
+
+.high {
+
+    border-left:
+    5px solid red;
+
+}
+
+
+
+.match {
+
+    padding:
+    8px;
+
+    background:
+    #243746;
+
+    margin:
+    5px;
+
+}

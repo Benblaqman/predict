@@ -1,0 +1,29 @@
+{
+  "validated_at": "2026-07-26T08:45:00+00:00",
+
+  "status": "PASSED",
+
+  "total_slips_checked": 3,
+
+  "valid_slips": 3,
+
+  "invalid_slips": 0,
+
+  "checks": {
+    "slip_structure": "PASSED",
+
+    "duplicate_fixtures": "PASSED",
+
+    "valid_markets": "PASSED",
+
+    "confidence_values": "PASSED",
+
+    "odds_values": "PASSED"
+  },
+
+  "errors": [],
+
+  "summary": {
+    "message": "All betting slips passed validation and are ready for export."
+  }
+}

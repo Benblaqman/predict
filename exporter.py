@@ -1,47 +1,42 @@
 #!/usr/bin/env python3
+
 """
 exporter.py
 
-Exports validated betting slips into
-a dashboard-friendly JSON format.
+Creates dashboard-ready JSON.
 
 Input:
-    engine/data/optimized_slips.json
-    engine/data/slip_validation.json
+
+data/optimized_slips.json
+data/slip_validation.json
+
 
 Output:
-    engine/data/dashboard.json
 
+data/dashboard.json
 """
 
-from __future__ import annotations
 
-import json
 from pathlib import Path
 from datetime import datetime, timezone
+import json
 
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
 
 SLIPS_FILE = Path(
-    "engine/data/optimized_slips.json"
+    "data/optimized_slips.json"
 )
+
 
 VALIDATION_FILE = Path(
-    "engine/data/slip_validation.json"
+    "data/slip_validation.json"
 )
+
 
 OUTPUT_FILE = Path(
-    "engine/data/dashboard.json"
+    "data/dashboard.json"
 )
 
-
-
-# --------------------------------------------------
-# Load
-# --------------------------------------------------
 
 
 def load_json(path):
@@ -55,17 +50,11 @@ def load_json(path):
 
     with open(
         path,
-        "r",
         encoding="utf-8"
     ) as file:
 
         return json.load(file)
 
-
-
-# --------------------------------------------------
-# Validation Check
-# --------------------------------------------------
 
 
 def check_validation():
@@ -75,34 +64,32 @@ def check_validation():
     )
 
 
-    if report.get(
-        "status"
-    ) != "PASS":
+    invalid = report.get(
+        "invalid_slips",
+        0
+    )
+
+
+    if invalid > 0:
 
         raise RuntimeError(
-            "Slip validation failed. "
+            "Invalid slips detected. "
             "Dashboard export cancelled."
         )
 
 
 
-# --------------------------------------------------
-# Risk Summary
-# --------------------------------------------------
-
-
 def risk_summary(slips):
 
+    summary={
 
-    summary = {
+        "ULTRA_SAFE":0,
 
-        "ULTRA_SAFE": 0,
+        "SAFE":0,
 
-        "SAFE": 0,
+        "MEDIUM":0,
 
-        "MEDIUM": 0,
-
-        "HIGH": 0
+        "HIGH":0
 
     }
 
@@ -116,58 +103,11 @@ def risk_summary(slips):
 
         if risk in summary:
 
-            summary[risk] += 1
+            summary[risk]+=1
 
 
     return summary
 
-
-
-# --------------------------------------------------
-# Best Slip
-# --------------------------------------------------
-
-
-def find_best_slip(slips):
-
-
-    if not slips:
-
-        return None
-
-
-
-    return sorted(
-
-        slips,
-
-        key=lambda x:
-
-        (
-
-            x["summary"]
-            .get(
-                "average_confidence",
-                0
-            ),
-
-            x["summary"]
-            .get(
-                "combined_odds",
-                0
-            )
-
-        ),
-
-        reverse=True
-
-    )[0]
-
-
-
-# --------------------------------------------------
-# Format Slip
-# --------------------------------------------------
 
 
 def format_slip(
@@ -175,18 +115,23 @@ def format_slip(
     index
 ):
 
-
     return {
 
+
         "id":
+
             index,
 
 
         "risk":
-            slip["risk"],
+
+            slip.get(
+                "risk"
+            ),
 
 
         "confidence":
+
             slip["summary"]
             .get(
                 "average_confidence"
@@ -194,6 +139,7 @@ def format_slip(
 
 
         "combined_odds":
+
             slip["summary"]
             .get(
                 "combined_odds"
@@ -202,30 +148,50 @@ def format_slip(
 
         "matches":[
 
+
             {
 
                 "fixture_id":
-                    match["fixture_id"],
+
+                    match.get(
+                        "fixture_id"
+                    ),
 
 
                 "teams":
-                    match["teams"],
+
+                    match.get(
+                        "teams"
+                    ),
 
 
                 "market":
-                    match["market"],
+
+                    match.get(
+                        "recommended"
+                    ),
 
 
                 "confidence":
-                    match["confidence"],
+
+                    match.get(
+                        "confidence"
+                    ),
 
 
                 "odds":
-                    match["odds"]
+
+                    match.get(
+                        "odds"
+                    )
 
             }
 
-            for match in slip["matches"]
+
+            for match in slip.get(
+                "matches",
+                []
+            )
 
         ]
 
@@ -233,20 +199,34 @@ def format_slip(
 
 
 
-# --------------------------------------------------
-# Dashboard Builder
-# --------------------------------------------------
+def find_best_slip(slips):
+
+    if not slips:
+
+        return None
+
+
+
+    return max(
+
+        slips,
+
+        key=lambda slip:
+
+        slip["summary"]
+        .get(
+            "average_confidence",
+            0
+        )
+
+    )
+
 
 
 def create_dashboard(slips):
 
 
-    best = find_best_slip(
-        slips
-    )
-
-
-    dashboard_slips = []
+    formatted=[]
 
 
     for index, slip in enumerate(
@@ -254,7 +234,7 @@ def create_dashboard(slips):
         start=1
     ):
 
-        dashboard_slips.append(
+        formatted.append(
 
             format_slip(
                 slip,
@@ -262,6 +242,12 @@ def create_dashboard(slips):
             )
 
         )
+
+
+
+    best=find_best_slip(
+        slips
+    )
 
 
 
@@ -283,6 +269,7 @@ def create_dashboard(slips):
             "name":
                 "Football Prediction Engine",
 
+
             "version":
                 "1.0"
 
@@ -299,6 +286,7 @@ def create_dashboard(slips):
 
 
             "risk_distribution":
+
                 risk_summary(
                     slips
                 )
@@ -320,43 +308,57 @@ def create_dashboard(slips):
 
         "slips":
 
-            dashboard_slips
+            formatted
 
     }
 
 
 
-# --------------------------------------------------
-# Save
-# --------------------------------------------------
+def export_dashboard():
 
 
-def save_dashboard(data):
+    check_validation()
+
+
+    data = load_json(
+        SLIPS_FILE
+    )
+
+
+    slips=data.get(
+        "slips",
+        []
+    )
+
+
+    if not slips:
+
+        raise RuntimeError(
+            "No optimized slips found"
+        )
+
+
+
+    dashboard=create_dashboard(
+        slips
+    )
 
 
     OUTPUT_FILE.parent.mkdir(
-
-        parents=True,
-
         exist_ok=True
-
     )
 
 
     with open(
-
         OUTPUT_FILE,
-
         "w",
-
         encoding="utf-8"
-
     ) as file:
 
 
         json.dump(
 
-            data,
+            dashboard,
 
             file,
 
@@ -367,62 +369,9 @@ def save_dashboard(data):
         )
 
 
-
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
-
-
-def main():
-
-
     print(
-        "Checking slip validation..."
+        "Dashboard exported:"
     )
-
-
-    check_validation()
-
-
-
-    print(
-        "Loading optimized slips..."
-    )
-
-
-    data = load_json(
-        SLIPS_FILE
-    )
-
-
-    slips = data.get(
-        "slips",
-        []
-    )
-
-
-    if not slips:
-
-        raise RuntimeError(
-            "No slips available"
-        )
-
-
-
-    dashboard = create_dashboard(
-        slips
-    )
-
-
-    save_dashboard(
-        dashboard
-    )
-
-
-    print(
-        "Dashboard export completed"
-    )
-
 
     print(
         OUTPUT_FILE
@@ -430,6 +379,6 @@ def main():
 
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
 
-    main()
+    export_dashboard()

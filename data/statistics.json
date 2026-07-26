@@ -1,0 +1,78 @@
+{
+  "matches": 3,
+  "statistics": [
+    {
+      "fixture_id": 1001,
+
+      "match": {
+        "home": "Manchester United",
+        "away": "Chelsea",
+        "league": "Premier League",
+        "kickoff": "2026-07-26T15:00:00+00:00"
+      },
+
+      "home_stats": {
+        "team": "Manchester United",
+
+        "form_last_5": [
+          "W",
+          "W",
+          "D",
+          "W",
+          "L"
+        ],
+
+        "wins_last_5": 3,
+        "draws_last_5": 1,
+        "losses_last_5": 1,
+
+        "goals_scored_avg": 1.8,
+        "goals_conceded_avg": 0.9,
+
+        "home_strength": 82,
+
+        "away_strength": 0,
+
+        "league_position": 3,
+
+        "elo_rating": 1850
+      },
+
+
+      "away_stats": {
+        "team": "Chelsea",
+
+        "form_last_5": [
+          "W",
+          "D",
+          "L",
+          "W",
+          "D"
+        ],
+
+        "wins_last_5": 2,
+        "draws_last_5": 2,
+        "losses_last_5": 1,
+
+        "goals_scored_avg": 1.5,
+        "goals_conceded_avg": 1.1,
+
+        "home_strength": 0,
+
+        "away_strength": 76,
+
+        "league_position": 6,
+
+        "elo_rating": 1780
+      },
+
+
+      "h2h": {
+        "meetings": 5,
+        "home_wins": 3,
+        "draws": 1,
+        "away_wins": 1
+      }
+    }
+  ]
+}

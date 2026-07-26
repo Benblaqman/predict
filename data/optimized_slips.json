@@ -1,0 +1,155 @@
+{
+  "generated": "2026-07-26T08:30:00+00:00",
+
+  "total_slips": 3,
+
+  "slips": [
+
+    {
+      "slip_id": 1,
+
+      "risk": "ULTRA_SAFE",
+
+      "matches": [
+
+        {
+          "fixture_id": 1001,
+
+          "teams": {
+            "home": "Manchester United",
+            "away": "Chelsea"
+          },
+
+          "market": "1X",
+
+          "confidence": 84.0,
+
+          "odds": 1.25
+        },
+
+        {
+          "fixture_id": 1003,
+
+          "teams": {
+            "home": "Inter Milan",
+            "away": "AC Milan"
+          },
+
+          "market": "1X",
+
+          "confidence": 79.0,
+
+          "odds": 1.30
+        }
+
+      ],
+
+      "summary": {
+
+        "average_confidence": 81.5,
+
+        "combined_odds": 1.63
+
+      }
+    },
+
+
+    {
+      "slip_id": 2,
+
+      "risk": "SAFE",
+
+      "matches": [
+
+        {
+          "fixture_id": 1001,
+
+          "teams": {
+            "home": "Manchester United",
+            "away": "Chelsea"
+          },
+
+          "market": "1X",
+
+          "confidence": 84.0,
+
+          "odds": 1.25
+        },
+
+        {
+          "fixture_id": 1002,
+
+          "teams": {
+            "home": "Real Madrid",
+            "away": "Barcelona"
+          },
+
+          "market": "12",
+
+          "confidence": 81.0,
+
+          "odds": 1.35
+        }
+
+      ],
+
+      "summary": {
+
+        "average_confidence": 82.5,
+
+        "combined_odds": 1.69
+
+      }
+    },
+
+
+    {
+      "slip_id": 3,
+
+      "risk": "MEDIUM",
+
+      "matches": [
+
+        {
+          "fixture_id": 1002,
+
+          "teams": {
+            "home": "Real Madrid",
+            "away": "Barcelona"
+          },
+
+          "market": "12",
+
+          "confidence": 81.0,
+
+          "odds": 1.35
+        },
+
+        {
+          "fixture_id": 1003,
+
+          "teams": {
+            "home": "Inter Milan",
+            "away": "AC Milan"
+          },
+
+          "market": "1X",
+
+          "confidence": 79.0,
+
+          "odds": 1.30
+        }
+
+      ],
+
+      "summary": {
+
+        "average_confidence": 80.0,
+
+        "combined_odds": 1.75
+
+      }
+    }
+
+  ]
+}

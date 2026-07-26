@@ -1,108 +1,60 @@
 #!/usr/bin/env python3
+
 """
-main.py
-
-Runs the complete football prediction pipeline.
-
-Workflow:
-
-fetch matches
-    |
-validate fixtures
-    |
-fetch statistics
-    |
-predict matches
-    |
-combine probabilities
-    |
-optimize slips
-    |
-validate slips
-    |
-export dashboard
-
+Football Prediction Engine Controller
 """
 
 
-from __future__ import annotations
-
-import subprocess
-import sys
-
-
-
-PIPELINE = [
-
-    "fetch_matches.py",
-
-    "validate_matches.py",
-
-    "fetch_statistics.py",
-
-    "predict_matches.py",
-
-    "probability_matches.py",
-
-    "Optimizer.py",
-
-    "validate_slips.py",
-
-    "exporter.py"
-
-]
+from fetch_matches import fetch_matches
+from validate_matches import validate_matches
+from fetch_statistics import fetch_statistics
+from predict_matches import predict_matches
+from probability_matches import calculate_probabilities
+from Optimizer import optimize_slips
+from validate_slips import validate_slips
+from exporter import export_dashboard
 
 
 
-def run_script(script):
+def run_engine():
 
-    print("\n")
-    print("=" * 50)
-    print(f"RUNNING {script}")
-    print("=" * 50)
+    print("\n⚽ FOOTBALL PREDICTION ENGINE\n")
 
-
-    result = subprocess.run(
-
-        [
-            sys.executable,
-            script
-        ]
-
-    )
+    print("1. Fetching fixtures")
+    fetch_matches()
 
 
-    if result.returncode != 0:
-
-        raise RuntimeError(
-            f"{script} failed"
-        )
+    print("2. Validating matches")
+    validate_matches()
 
 
-
-def main():
-
-    print(
-        "⚽ Starting Football Prediction Engine"
-    )
+    print("3. Fetching statistics")
+    fetch_statistics()
 
 
-    for script in PIPELINE:
-
-        run_script(
-            script
-        )
+    print("4. Generating predictions")
+    predict_matches()
 
 
-    print("\n")
-    print("=" * 50)
-    print(
-        "✅ PIPELINE COMPLETED SUCCESSFULLY"
-    )
-    print("=" * 50)
+    print("5. Calculating probabilities")
+    calculate_probabilities()
+
+
+    print("6. Optimizing betting slips")
+    optimize_slips()
+
+
+    print("7. Validating slips")
+    validate_slips()
+
+
+    print("8. Exporting dashboard")
+    export_dashboard()
+
+
+    print("\n✅ ENGINE COMPLETED SUCCESSFULLY")
 
 
 
 if __name__ == "__main__":
-
-    main()
+    run_engine()

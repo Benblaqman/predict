@@ -1,36 +1,42 @@
 #!/usr/bin/env python3
+
 """
 Optimizer.py
 
 Creates optimized betting slips.
 
 Input:
-    engine/data/probability_results.json
+    data/probability_results.json
 
 Output:
-    engine/data/optimized_slips.json
+    data/optimized_slips.json
 
+
+Features:
+
+- Confidence ranking
+- Value ranking
+- Risk balancing
+- Duplicate fixture protection
+- 10 optimized slips
 """
 
-from __future__ import annotations
 
-import json
-import random
 from pathlib import Path
 from datetime import datetime, timezone
+import json
 
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
 
 INPUT_FILE = Path(
-    "engine/data/probability_results.json"
+    "data/probability_results.json"
 )
 
+
 OUTPUT_FILE = Path(
-    "engine/data/optimized_slips.json"
+    "data/optimized_slips.json"
 )
+
 
 
 TOTAL_SLIPS = 10
@@ -39,27 +45,41 @@ MATCHES_PER_SLIP = 5
 
 
 
+RISK_ORDER = {
+
+    "ULTRA_SAFE": 1,
+
+    "SAFE": 2,
+
+    "MEDIUM": 3,
+
+    "HIGH": 4
+
+}
+
+
+
 # --------------------------------------------------
-# Load data
+# Load Data
 # --------------------------------------------------
 
 
-def load_matches():
+def load_results():
+
 
     if not INPUT_FILE.exists():
 
         raise FileNotFoundError(
-            f"{INPUT_FILE} not found"
+            "probability_results.json missing"
         )
 
 
     with open(
         INPUT_FILE,
-        "r",
         encoding="utf-8"
     ) as file:
 
-        data = json.load(file)
+        data=json.load(file)
 
 
     return data.get(
@@ -70,153 +90,44 @@ def load_matches():
 
 
 # --------------------------------------------------
-# Risk classification
-# --------------------------------------------------
-
-
-def risk_group(match):
-
-    confidence = match.get(
-        "confidence",
-        0
-    )
-
-
-    market = match.get(
-        "recommended"
-    )
-
-
-    if (
-        confidence >= 85
-        and market in ["1X", "X2"]
-    ):
-
-        return "ULTRA_SAFE"
-
-
-    if confidence >= 80:
-
-        return "SAFE"
-
-
-    if confidence >= 72:
-
-        return "MEDIUM"
-
-
-    return "HIGH"
-
-
-
-# --------------------------------------------------
 # Ranking
 # --------------------------------------------------
 
 
 def rank_matches(matches):
 
-    for match in matches:
-
-        match["risk"] = risk_group(
-            match
-        )
-
-
-        # optimizer score
-
-        confidence = match.get(
-            "confidence",
-            0
-        )
-
-
-        odds = match.get(
-            "odds",
-            1
-        )
-
-
-        value_score = (
-            confidence
-            *
-            float(odds)
-        )
-
-
-        match["score"] = round(
-            value_score,
-            2
-        )
-
 
     return sorted(
+
         matches,
+
         key=lambda x:
-        x["score"],
-        reverse=True
-    )
 
+        (
 
+            RISK_ORDER.get(
+                x.get("risk"),
+                99
+            ),
 
-# --------------------------------------------------
-# Create risk pools
-# --------------------------------------------------
+            -x.get(
+                "confidence",
+                0
+            ),
 
+            -x.get(
+                "value",
+                0
+            )
 
-def build_pools(matches):
-
-
-    pools = {
-
-        "ULTRA_SAFE": [],
-
-        "SAFE": [],
-
-        "MEDIUM": [],
-
-        "HIGH": []
-
-    }
-
-
-    for match in matches:
-
-        pools[
-            match["risk"]
-        ].append(
-            match
         )
 
-
-    return pools
-
-
-
-# --------------------------------------------------
-# Select matches
-# --------------------------------------------------
-
-
-def select_matches(
-    pool
-):
-
-
-    if len(pool) < MATCHES_PER_SLIP:
-
-        return None
-
-
-    return random.sample(
-        pool,
-        MATCHES_PER_SLIP
     )
 
 
 
 # --------------------------------------------------
-# Build slip
+# Build Slip
 # --------------------------------------------------
 
 
@@ -226,87 +137,152 @@ def create_slip(
 ):
 
 
+    if len(matches) < MATCHES_PER_SLIP:
+
+        return None
+
+
+
     combined_odds = 1
 
-    total_confidence = 0
+    confidence_total = 0
 
 
-    selections = []
+
+    selections=[]
+
+
+
+    used=set()
+
 
 
     for match in matches:
 
 
-        combined_odds *= float(
-            match.get(
-                "odds",
-                1
-            )
+        if len(selections) >= MATCHES_PER_SLIP:
+
+            break
+
+
+
+        fixture_id = match.get(
+            "fixture_id"
         )
 
 
-        total_confidence += (
-            match.get(
-                "confidence",
-                0
-            )
+
+        if fixture_id in used:
+
+            continue
+
+
+
+        used.add(
+            fixture_id
         )
 
 
-        selections.append(
 
-            {
-
-                "fixture_id":
-                    match["fixture_id"],
-
-
-                "teams":
-                    match["teams"],
-
-
-                "market":
-                    match["recommended"],
-
-
-                "confidence":
-                    match["confidence"],
-
-
-                "odds":
-                    match["odds"]
-
-            }
-
+        combined_odds *= match.get(
+            "odds",
+            1
         )
+
+
+        confidence_total += match.get(
+            "confidence",
+            0
+        )
+
+
+
+        selections.append({
+
+
+            "fixture_id":
+
+                fixture_id,
+
+
+            "teams":
+
+                match.get(
+                    "teams"
+                ),
+
+
+            "recommended":
+
+                match.get(
+                    "recommended"
+                ),
+
+
+            "confidence":
+
+                match.get(
+                    "confidence"
+                ),
+
+
+            "odds":
+
+                match.get(
+                    "odds"
+                )
+
+        })
+
+
+
+    if len(selections) != MATCHES_PER_SLIP:
+
+        return None
+
 
 
     return {
 
+
         "risk":
+
             risk,
 
 
+
         "matches":
+
             selections,
+
 
 
         "summary":
 
         {
 
+
             "average_confidence":
+
                 round(
-                    total_confidence /
+
+                    confidence_total /
                     MATCHES_PER_SLIP,
+
                     2
+
                 ),
 
 
+
             "combined_odds":
+
                 round(
+
                     combined_odds,
+
                     2
+
                 )
 
         }
@@ -316,35 +292,43 @@ def create_slip(
 
 
 # --------------------------------------------------
-# Generate slips
+# Generate Slips
 # --------------------------------------------------
 
 
-def generate_slips(matches):
+def optimize(matches):
 
 
-    pools = build_pools(
+    ranked = rank_matches(
         matches
     )
 
 
-    strategy = [
+    slips=[]
+
+
+
+    risk_plan=[
+
 
         "ULTRA_SAFE",
 
         "ULTRA_SAFE",
 
-        "SAFE",
 
         "SAFE",
 
         "SAFE",
+
+        "SAFE",
+
 
         "MEDIUM",
 
         "MEDIUM",
 
         "MEDIUM",
+
 
         "HIGH",
 
@@ -353,76 +337,39 @@ def generate_slips(matches):
     ]
 
 
-    slips = []
+
+    for risk in risk_plan:
 
 
-    used_combinations = set()
+        pool=[
 
+            match
 
+            for match in ranked
 
-    for risk in strategy:
+            if match.get(
+                "risk"
+            ) == risk
 
-
-        available = pools[risk]
-
-
-        chosen = select_matches(
-            available
-        )
-
-
-        # fallback if pool is small
-
-        if chosen is None:
-
-            chosen = select_matches(
-                matches
-            )
-
-
-        if chosen is None:
-
-            continue
+        ]
 
 
 
-        fixture_ids = tuple(
-            sorted(
+        slip=create_slip(
 
-                m["fixture_id"]
+            pool,
 
-                for m in chosen
-
-            )
-        )
-
-
-        # prevent duplicate slips
-
-        if fixture_ids in used_combinations:
-
-            continue
-
-
-        used_combinations.add(
-            fixture_ids
-        )
-
-
-        slip = create_slip(
-            chosen,
             risk
+
         )
 
 
-        slips.append(
-            slip
-        )
 
+        if slip:
 
-        if len(slips) == TOTAL_SLIPS:
-
-            break
+            slips.append(
+                slip
+            )
 
 
 
@@ -435,46 +382,56 @@ def generate_slips(matches):
 # --------------------------------------------------
 
 
-def save_slips(slips):
+def save_output(slips):
 
 
     OUTPUT_FILE.parent.mkdir(
+
         parents=True,
+
         exist_ok=True
+
     )
 
 
-    data = {
-
-        "generated":
-
-            datetime.now(
-                timezone.utc
-            ).isoformat(),
-
-
-        "total_slips":
-
-            len(slips),
-
-
-        "slips":
-
-            slips
-
-    }
-
 
     with open(
+
         OUTPUT_FILE,
+
         "w",
+
         encoding="utf-8"
+
     ) as file:
+
 
 
         json.dump(
 
-            data,
+            {
+
+
+                "generated":
+
+                    datetime.now(
+                        timezone.utc
+                    ).isoformat(),
+
+
+
+                "total_slips":
+
+                    len(slips),
+
+
+
+                "slips":
+
+                    slips
+
+
+            },
 
             file,
 
@@ -494,55 +451,32 @@ def save_slips(slips):
 def main():
 
 
-    print(
-        "Loading probability results..."
-    )
+    matches = load_results()
 
 
-    matches = load_matches()
 
-
-    if len(matches) < 5:
+    if not matches:
 
         raise RuntimeError(
-            "Not enough matches for optimization"
+            "No betting selections available"
         )
 
 
-    print(
-        f"Loaded {len(matches)} matches"
-    )
 
-
-    ranked = rank_matches(
+    slips = optimize(
         matches
     )
 
 
-    slips = generate_slips(
-        ranked
-    )
 
-
-    if len(slips) < TOTAL_SLIPS:
-
-        print(
-            "Warning: fewer than 10 slips generated"
-        )
-
-
-    save_slips(
+    save_output(
         slips
     )
 
 
-    print(
-        f"Generated {len(slips)} betting slips"
-    )
-
 
     print(
-        OUTPUT_FILE
+        f"Generated {len(slips)} optimized slips"
     )
 
 

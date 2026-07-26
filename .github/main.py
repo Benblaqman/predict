@@ -1,60 +1,94 @@
 #!/usr/bin/env python3
 
 """
+main.py
+
 Football Prediction Engine Controller
+
+Runs the complete pipeline:
+
+1. Fetch fixtures
+2. Validate fixtures
+3. Fetch statistics
+4. Predict matches
+5. Calculate probabilities
+6. Optimize slips
+7. Validate slips
+8. Export dashboard
 """
 
 
-from fetch_matches import fetch_matches
-from validate_matches import validate_matches
-from fetch_statistics import fetch_statistics
-from predict_matches import predict_matches
-from probability_matches import calculate_probabilities
-from Optimizer import optimize_slips
-from validate_slips import validate_slips
-from exporter import export_dashboard
+import subprocess
+import sys
 
 
 
-def run_engine():
+PIPELINE = [
 
-    print("\n⚽ FOOTBALL PREDICTION ENGINE\n")
+    "fetch_matches.py",
 
-    print("1. Fetching fixtures")
-    fetch_matches()
+    "validate_matches.py",
 
+    "fetch_statistics.py",
 
-    print("2. Validating matches")
-    validate_matches()
+    "predict_matches.py",
 
+    "probability_matches.py",
 
-    print("3. Fetching statistics")
-    fetch_statistics()
+    "Optimizer.py",
 
+    "validate_slips.py",
 
-    print("4. Generating predictions")
-    predict_matches()
+    "exporter.py"
 
-
-    print("5. Calculating probabilities")
-    calculate_probabilities()
+]
 
 
-    print("6. Optimizing betting slips")
-    optimize_slips()
+
+def run_step(script):
+
+    print("\n============================")
+    print(f"Running {script}")
+    print("============================")
 
 
-    print("7. Validating slips")
-    validate_slips()
+    result = subprocess.run(
+
+        [
+            sys.executable,
+            script
+        ]
+
+    )
 
 
-    print("8. Exporting dashboard")
-    export_dashboard()
+    if result.returncode != 0:
+
+        raise RuntimeError(
+            f"{script} failed"
+        )
 
 
-    print("\n✅ ENGINE COMPLETED SUCCESSFULLY")
+
+def main():
+
+    print(
+        "⚽ Football Prediction Engine Started"
+    )
+
+
+    for step in PIPELINE:
+
+        run_step(step)
+
+
+
+    print(
+        "\n✅ ENGINE COMPLETED SUCCESSFULLY"
+    )
 
 
 
 if __name__ == "__main__":
-    run_engine()
+
+    main()

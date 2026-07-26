@@ -1,312 +1,161 @@
 #!/usr/bin/env python3
+
+
 """
-Optimizer.py
-
-Creates 10 betting slips from
-probability_results.json
-
-Input:
-engine/data/probability_results.json
-
-Output:
-engine/data/optimized_slips.json
+Generate optimized betting slips.
 """
 
-
-from __future__ import annotations
 
 import json
 import random
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime,timezone
 
 
-INPUT_FILE = Path(
-    "engine/data/probability_results.json"
+
+INPUT = Path(
+    "data/probability_results.json"
 )
 
 
-OUTPUT_FILE = Path(
-    "engine/data/optimized_slips.json"
+OUTPUT = Path(
+    "data/optimized_slips.json"
 )
 
 
-SLIPS = 10
 
-MATCHES_PER_SLIP = 5
-
-
-
-# --------------------------------------------------
-# Load
-# --------------------------------------------------
+TOTAL_SLIPS=10
+MATCHES_PER_SLIP=5
 
 
-def load_matches():
+
+def optimize_slips():
+
 
     with open(
-        INPUT_FILE,
-        "r",
+        INPUT,
         encoding="utf-8"
-    ) as file:
+    ) as f:
 
-        return json.load(file)["results"]
-
-
-
-# --------------------------------------------------
-# Filters
-# --------------------------------------------------
-
-
-def pools(matches):
-
-
-    ultra = [
-        m for m in matches
-        if m["risk"] == "ULTRA_SAFE"
-    ]
-
-
-    safe = [
-        m for m in matches
-        if m["risk"] == "SAFE"
-    ]
-
-
-    medium = [
-        m for m in matches
-        if m["risk"] == "MEDIUM"
-    ]
-
-
-    high = [
-        m for m in matches
-        if m["risk"] == "HIGH"
-    ]
-
-
-    return {
-
-        "ULTRA_SAFE": ultra,
-        "SAFE": safe,
-        "MEDIUM": medium,
-        "HIGH": high
-
-    }
+        matches=json.load(f)["results"]
 
 
 
-# --------------------------------------------------
-# Slip builder
-# --------------------------------------------------
-
-
-def create_slip(
-    available,
-    risk
-):
-
-
-    if len(available) < MATCHES_PER_SLIP:
-
-        return None
-
-
-    selected = random.sample(
-
-        available,
-
-        MATCHES_PER_SLIP
-
+    matches.sort(
+        key=lambda x:
+        x["confidence"],
+        reverse=True
     )
 
-
-    combined_odds = 1
-
-
-    confidence = 0
-
-
-    for match in selected:
-
-        combined_odds *= match["odds"]
-
-        confidence += match["confidence"]
-
-
-
-    confidence /= MATCHES_PER_SLIP
-
-
-
-    return {
-
-        "risk":
-
-            risk,
-
-
-        "matches":[
-
-            {
-
-                "fixture_id":
-                    m["fixture_id"],
-
-                "teams":
-                    m["teams"],
-
-                "market":
-                    m["recommended"],
-
-                "confidence":
-                    m["confidence"],
-
-                "odds":
-                    m["odds"]
-
-            }
-
-            for m in selected
-
-        ],
-
-
-        "summary":{
-
-            "average_confidence":
-                round(
-                    confidence,
-                    2
-                ),
-
-            "combined_odds":
-                round(
-                    combined_odds,
-                    2
-                )
-
-        }
-
-    }
-
-
-
-# --------------------------------------------------
-# Optimize
-# --------------------------------------------------
-
-
-def optimize(matches):
-
-
-    grouped = pools(matches)
-
-
-    plan = [
-
-        "ULTRA_SAFE",
-
-        "ULTRA_SAFE",
-
-        "SAFE",
-
-        "SAFE",
-
-        "SAFE",
-
-        "MEDIUM",
-
-        "MEDIUM",
-
-        "MEDIUM",
-
-        "HIGH",
-
-        "HIGH"
-
-    ]
 
 
     slips=[]
 
 
-    for risk in plan:
+
+    for number in range(
+        TOTAL_SLIPS
+    ):
 
 
-        slip = create_slip(
+        selected=random.sample(
 
-            grouped[risk],
+            matches,
 
-            risk
+            min(
+                MATCHES_PER_SLIP,
+                len(matches)
+            )
 
         )
 
 
-        if slip:
+        odds=1
 
-            slips.append(
-                slip
-            )
-
-
-    return slips
+        confidence=0
 
 
 
-# --------------------------------------------------
-# Save
-# --------------------------------------------------
+        for item in selected:
+
+            odds *= item["odds"]
+
+            confidence += item["confidence"]
 
 
-def main():
 
-    matches = load_matches()
-
-
-    slips = optimize(
-        matches
-    )
+        confidence /= len(selected)
 
 
-    payload = {
 
-        "generated":
-            datetime.now(
-                timezone.utc
-            ).isoformat(),
+        slips.append({
 
-
-        "total_slips":
-            len(slips),
+            "slip":
+                number+1,
 
 
-        "slips":
-            slips
+            "risk":
+                selected[0]["risk"],
 
-    }
+
+            "matches":
+                selected,
+
+
+            "summary":{
+
+                "average_confidence":
+                    round(
+                        confidence,
+                        2
+                    ),
+
+
+                "combined_odds":
+                    round(
+                        odds,
+                        2
+                    )
+
+            }
+
+        })
+
 
 
     with open(
-        OUTPUT_FILE,
+        OUTPUT,
         "w",
         encoding="utf-8"
-    ) as file:
+    ) as f:
 
-        json.dump(
-            payload,
-            file,
-            indent=2
-        )
+
+        json.dump({
+
+            "generated":
+                datetime.now(
+                    timezone.utc
+                ).isoformat(),
+
+
+            "total_slips":
+                len(slips),
+
+
+            "slips":
+                slips
+
+
+        },f,indent=2)
+
 
 
     print(
-        f"Generated {len(slips)} slips"
+        "Optimized slips created"
     )
 
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
 
-    main()
+    optimize_slips()

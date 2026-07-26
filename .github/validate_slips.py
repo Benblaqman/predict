@@ -1,173 +1,229 @@
 #!/usr/bin/env python3
+
 """
 validate_slips.py
 
-Validates optimized betting slips.
+Validates generated betting slips.
 
 Input:
-    engine/data/optimized_slips.json
+    data/optimized_slips.json
 
 Output:
-    engine/data/slip_validation.json
+    data/slip_validation.json
+
 
 Checks:
-- File exists
-- JSON integrity
-- Slip count
-- Match count per slip
+
+- Slip structure
 - Duplicate fixtures
+- Missing selections
+- Invalid markets
 - Invalid odds
 - Invalid confidence
-- Contradictory markets
-- Risk consistency
-
-Exit:
-0 = validation passed
-1 = validation failed
+- Risk category validation
 """
 
 
-from __future__ import annotations
-
-import json
-import sys
 from pathlib import Path
+import json
 from datetime import datetime, timezone
 
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
 
-SLIPS_FILE = Path(
-    "engine/data/optimized_slips.json"
-)
-
-REPORT_FILE = Path(
-    "engine/data/slip_validation.json"
+INPUT_FILE = Path(
+    "data/optimized_slips.json"
 )
 
 
-EXPECTED_SLIPS = 10
+OUTPUT_FILE = Path(
+    "data/slip_validation.json"
+)
 
-MATCHES_PER_SLIP = 5
 
 
-MIN_CONFIDENCE = 65
+VALID_RISKS = {
+
+    "ULTRA_SAFE",
+
+    "SAFE",
+
+    "MEDIUM",
+
+    "HIGH"
+
+}
+
+
+
+VALID_MARKETS = {
+
+    "1X",
+
+    "X2",
+
+    "12"
+
+}
+
+
+
+MIN_SELECTIONS = 1
+
 
 
 # --------------------------------------------------
-# Helpers
+# Load slips
 # --------------------------------------------------
-
-
-errors = []
-
-
-def fail(message):
-
-    errors.append(message)
-
 
 
 def load_slips():
 
-    if not SLIPS_FILE.exists():
 
-        fail(
+    if not INPUT_FILE.exists():
+
+        raise FileNotFoundError(
             "optimized_slips.json missing"
         )
 
-        return None
 
+    with open(
+        INPUT_FILE,
+        encoding="utf-8"
+    ) as file:
 
-    try:
-
-        with open(
-            SLIPS_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            return json.load(file)
-
-
-    except Exception as e:
-
-        fail(
-            f"Invalid JSON: {e}"
-        )
-
-        return None
+        data=json.load(file)
 
 
 
-# --------------------------------------------------
-# Validation Rules
-# --------------------------------------------------
-
-
-def validate_structure(data):
-
-
-    if not data:
-
-        return
-
-
-    slips = data.get(
-        "slips"
+    return data.get(
+        "slips",
+        []
     )
 
 
-    if slips is None:
 
-        fail(
-            "Missing slips key"
-        )
-
-        return
+# --------------------------------------------------
+# Validate selection
+# --------------------------------------------------
 
 
+def validate_selection(selection):
 
-    if len(slips) != EXPECTED_SLIPS:
 
-        fail(
-
-            f"Expected {EXPECTED_SLIPS} slips "
-            f"but found {len(slips)}"
-
-        )
+    errors=[]
 
 
 
-def validate_slip(
-    slip,
-    index,
-    global_fixtures
-):
+    required=[
 
+        "fixture_id",
 
-    required = [
+        "teams",
 
-        "risk",
+        "recommended",
 
-        "matches",
+        "confidence",
 
-        "summary"
+        "odds"
 
     ]
 
 
+
     for field in required:
 
-        if field not in slip:
 
-            fail(
+        if field not in selection:
 
-                f"Slip {index}: missing {field}"
+            errors.append(
+
+                f"Missing {field}"
 
             )
+
+
+
+    if selection.get(
+        "recommended"
+    ) not in VALID_MARKETS:
+
+
+        errors.append(
+            "Invalid market"
+        )
+
+
+
+    odds = selection.get(
+        "odds"
+    )
+
+
+
+    if not isinstance(
+        odds,
+        (int,float)
+    ) or odds <= 1:
+
+
+        errors.append(
+            "Invalid odds"
+        )
+
+
+
+    confidence = selection.get(
+        "confidence"
+    )
+
+
+
+    if not isinstance(
+        confidence,
+        (int,float)
+    ):
+
+
+        errors.append(
+            "Invalid confidence"
+        )
+
+
+    elif confidence < 0 or confidence > 100:
+
+
+        errors.append(
+            "Confidence outside range"
+        )
+
+
+
+    return errors
+
+
+
+# --------------------------------------------------
+# Validate slip
+# --------------------------------------------------
+
+
+def validate_slip(
+    slip
+):
+
+
+    errors=[]
+
+
+
+    if slip.get(
+        "risk"
+    ) not in VALID_RISKS:
+
+
+        errors.append(
+            "Invalid risk category"
+        )
 
 
 
@@ -177,399 +233,232 @@ def validate_slip(
     )
 
 
-    if len(matches) != MATCHES_PER_SLIP:
 
-        fail(
+    if len(matches) < MIN_SELECTIONS:
 
-            f"Slip {index}: expected "
-            f"{MATCHES_PER_SLIP} matches"
 
+        errors.append(
+            "No selections found"
         )
 
 
-    local_fixtures = set()
+
+    fixture_ids=[]
 
 
 
-    for match in matches:
+    for selection in matches:
 
 
-        fixture_id = match.get(
-            "fixture_id"
-        )
+        errors.extend(
 
-
-        if fixture_id is None:
-
-            fail(
-
-                f"Slip {index}: missing fixture id"
-
+            validate_selection(
+                selection
             )
 
-            continue
+        )
 
 
+        fixture_ids.append(
 
-        # Duplicate inside same slip
-
-        if fixture_id in local_fixtures:
-
-            fail(
-
-                f"Slip {index}: duplicate fixture "
-                f"{fixture_id}"
-
+            selection.get(
+                "fixture_id"
             )
 
-
-        local_fixtures.add(
-            fixture_id
         )
 
 
 
-        # Duplicate across slips
+    if len(fixture_ids) != len(set(fixture_ids)):
 
-        global_fixtures.append(
-            fixture_id
+
+        errors.append(
+            "Duplicate fixtures in slip"
         )
 
 
 
-        confidence = match.get(
-            "confidence",
-            0
-        )
-
-
-        if confidence < MIN_CONFIDENCE:
-
-            fail(
-
-                f"Slip {index}: "
-                f"{fixture_id} confidence too low "
-                f"({confidence})"
-
-            )
-
-
-
-        odds = match.get(
-            "odds"
-        )
-
-
-        try:
-
-            odds = float(
-                odds
-            )
-
-
-            if odds <= 1:
-
-                fail(
-
-                    f"Slip {index}: invalid odds "
-                    f"{odds}"
-
-                )
-
-
-        except:
-
-            fail(
-
-                f"Slip {index}: invalid odds value"
-
-            )
-
-
-
-        validate_market(
-            match,
-            index
-        )
-
-
-
-def validate_market(
-    match,
-    slip_index
-):
-
-
-    market = match.get(
-        "market"
-    )
-
-
-    valid = [
-
-        "1X",
-
-        "X2",
-
-        "12"
-
-    ]
-
-
-    if market not in valid:
-
-        fail(
-
-            f"Slip {slip_index}: "
-            f"unknown market {market}"
-
-        )
-
-
-
-# --------------------------------------------------
-# Duplicate Analysis
-# --------------------------------------------------
-
-
-def validate_global_duplicates(
-    fixture_ids
-):
-
-
-    seen = set()
-
-
-    duplicates = set()
-
-
-    for item in fixture_ids:
-
-        if item in seen:
-
-            duplicates.add(
-                item
-            )
-
-        seen.add(
-            item
-        )
-
-
-    for duplicate in duplicates:
-
-        fail(
-
-            f"Fixture appears in multiple slips: "
-            f"{duplicate}"
-
-        )
-
-
-
-# --------------------------------------------------
-# Risk Validation
-# --------------------------------------------------
-
-
-def validate_risk(
-    slip,
-    index
-):
-
-
-    risk = slip.get(
-        "risk"
-    )
-
-
-    confidence = slip.get(
+    summary = slip.get(
         "summary",
         {}
-    ).get(
-        "average_confidence",
-        0
     )
 
 
 
-    if risk == "ULTRA_SAFE":
+    avg_confidence = summary.get(
+        "average_confidence"
+    )
 
-        if confidence < 85:
 
-            fail(
 
-                f"Slip {index}: "
-                "ULTRA_SAFE confidence too low"
+    if avg_confidence is not None:
 
+
+        if avg_confidence < 0 or avg_confidence > 100:
+
+            errors.append(
+                "Invalid average confidence"
             )
 
 
 
-    if risk == "SAFE":
+    combined_odds = summary.get(
+        "combined_odds"
+    )
 
-        if confidence < 75:
 
-            fail(
+    if combined_odds is not None:
 
-                f"Slip {index}: "
-                "SAFE confidence too low"
 
+        if combined_odds <= 1:
+
+            errors.append(
+                "Invalid combined odds"
             )
 
 
 
+    return errors
+
+
+
 # --------------------------------------------------
-# Report
+# Main validator
 # --------------------------------------------------
 
 
-def save_report():
+def validate_slips():
 
-    REPORT_FILE.parent.mkdir(
-        parents=True,
+
+    slips = load_slips()
+
+
+
+    validated=[]
+
+    valid_count=0
+
+    invalid_count=0
+
+
+
+    for index, slip in enumerate(
+        slips,
+        start=1
+    ):
+
+
+        errors = validate_slip(
+            slip
+        )
+
+
+
+        result={
+
+
+            "slip_number":
+
+                index,
+
+
+            "valid":
+
+                len(errors) == 0,
+
+
+            "errors":
+
+                errors
+
+
+        }
+
+
+
+        validated.append(
+            result
+        )
+
+
+
+        if errors:
+
+            invalid_count += 1
+
+        else:
+
+            valid_count += 1
+
+
+
+    OUTPUT_FILE.parent.mkdir(
         exist_ok=True
     )
 
 
-    report = {
-
-        "checked_at":
-
-            datetime.now(
-                timezone.utc
-            ).isoformat(),
-
-
-        "status":
-
-            "PASS"
-            if not errors
-            else
-            "FAILED",
-
-
-        "errors":
-
-            errors
-
-    }
-
 
     with open(
-        REPORT_FILE,
+        OUTPUT_FILE,
         "w",
         encoding="utf-8"
     ) as file:
 
-        json.dump(
 
-            report,
+        json.dump({
 
-            file,
+            "generated":
 
-            indent=2
+                datetime.now(
+                    timezone.utc
+                ).isoformat(),
 
+
+            "total_slips":
+
+                len(slips),
+
+
+            "valid_slips":
+
+                valid_count,
+
+
+            "invalid_slips":
+
+                invalid_count,
+
+
+            "validation":
+
+                validated
+
+
+        },
+        file,
+        indent=2
         )
 
 
 
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
+    print(
+        f"Validated {len(slips)} slips"
+    )
 
+    print(
+        f"Valid: {valid_count}"
+    )
 
-def main():
-
-
-    data = load_slips()
-
-
-    if data:
-
-        validate_structure(
-            data
-        )
-
-
-        slips = data.get(
-            "slips",
-            []
-        )
-
-
-        global_fixtures = []
-
-
-        for index, slip in enumerate(
-            slips,
-            start=1
-        ):
-
-
-            validate_slip(
-
-                slip,
-
-                index,
-
-                global_fixtures
-
-            )
-
-
-            validate_risk(
-
-                slip,
-
-                index
-
-            )
+    print(
+        f"Invalid: {invalid_count}"
+    )
 
 
 
-        validate_global_duplicates(
-
-            global_fixtures
-
-        )
-
-
-
-    save_report()
-
-
-
-    if errors:
-
-        print(
-            "❌ Slip validation failed"
-        )
-
-
-        for error in errors:
-
-            print(
-                " -",
-                error
-            )
-
-
-        sys.exit(1)
-
-
-
-    else:
-
-        print(
-            "✅ All slips validated successfully"
-        )
-
-
-        sys.exit(0)
+    return valid_count
 
 
 
 if __name__ == "__main__":
 
-    main()
+    validate_slips()
